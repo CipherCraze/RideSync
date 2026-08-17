@@ -8,6 +8,7 @@ interface AuthContextType {
   user: UserProfile | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  loginWithGoogle: (token: string) => Promise<void>;
   register: (data: any) => Promise<void>;
   logout: () => void;
   refreshUser: () => Promise<void>;
@@ -48,6 +49,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await refreshUser();
   };
 
+  const loginWithGoogle = async (token: string) => {
+    const res = await apiService.loginWithGoogle(token);
+    localStorage.setItem("ridesync_token", res.access_token);
+    await refreshUser();
+  };
+
   const register = async (data: any) => {
     await apiService.register(data);
     // Auto login after registration
@@ -61,7 +68,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, register, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, register, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

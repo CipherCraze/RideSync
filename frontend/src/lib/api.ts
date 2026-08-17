@@ -42,6 +42,10 @@ export const apiService = {
     const res = await api.post<{ access_token: string; token_type: string; user: User }>("/auth/login", credentials);
     return res.data;
   },
+  loginWithGoogle: async (token: string) => {
+    const res = await api.post<{ access_token: string; token_type: string; user: User }>("/auth/google", { token });
+    return res.data;
+  },
   getMe: async () => {
     const res = await api.get<UserProfile>("/auth/me");
     return res.data;

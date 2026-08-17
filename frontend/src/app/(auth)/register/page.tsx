@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Car, Lock, Mail, User as UserIcon, Phone } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { GoogleLogin } from "@react-oauth/google";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 export default function RegisterPage() {
   const router = useRouter();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const [fullName, setFullName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
   const [phone, setPhone] = useState<string>("");
@@ -112,6 +113,37 @@ export default function RegisterPage() {
             Create Account & Claim 100 Honor Points
           </Button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-2 text-gray-500">Or continue with</span>
+          </div>
+        </div>
+        
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              if (credentialResponse.credential) {
+                setLoading(true);
+                try {
+                  await loginWithGoogle(credentialResponse.credential);
+                  router.push("/dashboard");
+                } catch (err: any) {
+                  setError(err.response?.data?.detail || "Google registration failed.");
+                } finally {
+                  setLoading(false);
+                }
+              }
+            }}
+            onError={() => {
+              setError("Google Registration Failed");
+            }}
+            text="signup_with"
+          />
+        </div>
 
         <p className="text-center text-xs text-gray-500 pt-2">
           Already registered?{" "}

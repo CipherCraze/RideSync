@@ -5,12 +5,13 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Car, Lock, Mail, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { GoogleLogin } from "@react-oauth/google";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState<string>("");
   const [password, setPassword] = useState<string>("");
   const [loading, setLoading] = useState<boolean>(false);
@@ -94,6 +95,36 @@ export default function LoginPage() {
             Sign In
           </Button>
         </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <div className="w-full border-t border-gray-200"></div>
+          </div>
+          <div className="relative flex justify-center text-xs">
+            <span className="bg-white px-2 text-gray-500">Or continue with</span>
+          </div>
+        </div>
+        
+        <div className="flex justify-center">
+          <GoogleLogin
+            onSuccess={async (credentialResponse) => {
+              if (credentialResponse.credential) {
+                setLoading(true);
+                try {
+                  await loginWithGoogle(credentialResponse.credential);
+                  router.push("/dashboard");
+                } catch (err: any) {
+                  setError(err.response?.data?.detail || "Google login failed.");
+                } finally {
+                  setLoading(false);
+                }
+              }
+            }}
+            onError={() => {
+              setError("Google Login Failed");
+            }}
+          />
+        </div>
 
         {/* Demo Accounts Quick Login */}
         <div className="pt-4 border-t border-gray-100 space-y-2">
