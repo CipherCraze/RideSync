@@ -3,7 +3,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.schemas.auth import UserRegister, UserLogin, Token
+from app.schemas.auth import UserRegister, UserLogin, Token, GoogleLoginRequest, LoginResponse
 from app.schemas.user import UserProfileResponse, UserResponse
 from app.services.auth_service import AuthService
 from app.services.honor_service import HonorService
@@ -19,10 +19,15 @@ async def register(user_in: UserRegister, db: AsyncSession = Depends(get_db)):
     auth_service = AuthService(db)
     return await auth_service.register_user(user_in)
 
-@router.post("/login", response_model=dict)
+@router.post("/login", response_model=LoginResponse)
 async def login(credentials: UserLogin, db: AsyncSession = Depends(get_db)):
     auth_service = AuthService(db)
     return await auth_service.authenticate_user(credentials)
+
+@router.post("/google", response_model=LoginResponse)
+async def google_login(request: GoogleLoginRequest, db: AsyncSession = Depends(get_db)):
+    auth_service = AuthService(db)
+    return await auth_service.authenticate_google_user(request.token)
 
 @router.get("/me", response_model=UserProfileResponse)
 async def get_me(current_user: User = Depends(get_current_user), db: AsyncSession = Depends(get_db)):

@@ -1,4 +1,5 @@
 from pydantic import BaseModel, EmailStr, Field
+from app.schemas.user import UserResponse
 
 class Token(BaseModel):
     access_token: str
@@ -16,3 +17,11 @@ class UserRegister(BaseModel):
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
+
+class GoogleLoginRequest(BaseModel):
+    token: str
+
+class LoginResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    user: UserResponse

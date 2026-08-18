@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     SECRET_KEY: str = "ridesync_super_secret_jwt_key_change_in_production_2026_safe"
     ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60 * 24 * 7  # 7 days
+    GOOGLE_CLIENT_ID: str = "YOUR_GOOGLE_CLIENT_ID"
 
     # Database
     DATABASE_URL: str = "sqlite+aiosqlite:///./ridesync.db"
