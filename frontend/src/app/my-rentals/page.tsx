@@ -11,6 +11,8 @@ import { HonorScoreBadge } from "@/components/ui/HonorScoreBadge";
 import { Button } from "@/components/ui/Button";
 import { AddReviewModal } from "@/components/reviews/AddReviewModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
+import { AlertTriangle, Receipt } from "lucide-react";
 
 export default function MyRentalsPage() {
   const { user } = useAuth();
@@ -40,6 +42,29 @@ export default function MyRentalsPage() {
       fetchRentals();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to update booking status.");
+    }
+  };
+
+  const handlePayment = async (bookingId: number) => {
+    try {
+      await apiService.processPayment(bookingId);
+      alert("Payment successful!");
+      fetchRentals();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Payment failed.");
+    }
+  };
+
+  const viewReceipt = async (bookingId: number) => {
+    try {
+      const receipt = await apiService.getBookingReceipt(bookingId);
+      if (receipt.length > 0) {
+         alert(`Receipt:\nAmount: $${receipt[0].amount}\nStatus: ${receipt[0].status}\nDate: ${formatDate(receipt[0].created_at)}`);
+      } else {
+         alert("No receipt found.");
+      }
+    } catch (err: any) {
+      alert("Failed to fetch receipt.");
     }
   };
 
@@ -123,11 +148,18 @@ export default function MyRentalsPage() {
                   className="w-24 h-20 rounded-2xl object-cover shrink-0"
                 />
                 <div className="space-y-1">
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="font-extrabold text-base text-gray-900">
                       {b.vehicle?.brand} {b.vehicle?.model}
                     </h3>
                     <BookingStatusBadge status={b.status} />
+                    {b.payment_status === "PAID" && <Badge variant="default" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">Paid</Badge>}
+                    {b.payment_status === "REFUNDED" && <Badge variant="outline" className="text-gray-500 border-gray-300">Refunded</Badge>}
+                    {b.is_overdue && (
+                       <Badge variant="danger" className="animate-pulse flex items-center gap-1">
+                         <AlertTriangle className="w-3 h-3" /> Overdue
+                       </Badge>
+                    )}
                   </div>
 
                   <p className="text-xs text-gray-500 flex items-center gap-1.5">
@@ -153,7 +185,29 @@ export default function MyRentalsPage() {
                   <span className="text-xl font-extrabold text-gray-900">{formatCurrency(b.total_price)}</span>
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {b.payment_status === "PENDING" && (b.status === "CONFIRMED" || b.status === "PENDING") && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handlePayment(b.id)}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      Pay Now
+                    </Button>
+                  )}
+
+                  {b.payment_status === "PAID" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => viewReceipt(b.id)}
+                      className="gap-1 text-gray-600"
+                    >
+                      <Receipt className="w-4 h-4" /> Receipt
+                    </Button>
+                  )}
+
                   {b.status === "RENTAL_ACTIVE" && (
                     <Button
                       variant="primary"

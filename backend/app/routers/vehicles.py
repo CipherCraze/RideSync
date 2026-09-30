@@ -57,6 +57,11 @@ async def get_vehicle(vehicle_id: int, db: AsyncSession = Depends(get_db)):
     service = VehicleService(db)
     return await service.get_vehicle_by_id(vehicle_id)
 
+@router.get("/{vehicle_id}/availability")
+async def get_vehicle_availability(vehicle_id: int, db: AsyncSession = Depends(get_db)):
+    service = VehicleService(db)
+    return await service.get_vehicle_availability(vehicle_id)
+
 @router.post("/", response_model=VehicleDetailResponse, status_code=status.HTTP_201_CREATED)
 async def create_vehicle(
     vehicle_in: VehicleCreate,

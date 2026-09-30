@@ -41,6 +41,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
   const [bookingLoading, setBookingLoading] = useState<boolean>(false);
   const [bookingError, setBookingError] = useState<string>("");
   const [bookingSuccess, setBookingSuccess] = useState<boolean>(false);
+  const [unavailableSlots, setUnavailableSlots] = useState<{start_date: string; end_date: string}[]>([]);
 
   useEffect(() => {
     // Set default dates (tomorrow to +3 days)
@@ -50,16 +51,18 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
     const end = new Date(today);
     end.setDate(today.getDate() + 4);
 
-    setStartDate(start.toISOString().split("T")[0]);
-    setEndDate(end.toISOString().split("T")[0]);
+    setStartDate(start.toISOString().slice(0, 16));
+    setEndDate(end.toISOString().slice(0, 16));
 
     Promise.all([
       apiService.getVehicle(vehicleId),
       apiService.getVehicleReviews(vehicleId),
+      apiService.getVehicleAvailability(vehicleId),
     ])
-      .then(([vData, rData]) => {
+      .then(([vData, rData, aData]) => {
         setVehicle(vData);
         setReviews(rData);
+        setUnavailableSlots(aData);
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
@@ -79,9 +82,12 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
   let totalDays = 0;
   let totalPrice = 0;
 
+  let totalHours = 0;
+
   if (start && end && end > start) {
     const diffTime = Math.abs(end.getTime() - start.getTime());
-    totalDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    totalHours = diffTime / (1000 * 60 * 60);
+    totalDays = Math.max(0.1, totalHours / 24); // Show partial days
     totalPrice = totalDays * vehicle.price_per_day;
   }
 
@@ -308,7 +314,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                       Start Date
                     </label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
@@ -321,7 +327,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                       End Date
                     </label>
                     <input
-                      type="date"
+                      type="datetime-local"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
                       className="w-full px-3.5 py-2.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20"
@@ -335,7 +341,7 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                   <div className="p-3 bg-gray-50 rounded-xl space-y-2 text-xs border border-gray-100">
                     <div className="flex justify-between text-gray-600">
                       <span>
-                        {formatCurrency(vehicle.price_per_day)} x {totalDays} day(s)
+                        {formatCurrency(vehicle.price_per_day)} x {totalDays.toFixed(2)} day(s)
                       </span>
                       <span>{formatCurrency(totalPrice)}</span>
                     </div>
@@ -364,6 +370,21 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
                   >
                     Request Booking
                   </Button>
+                )}
+                
+                {unavailableSlots.length > 0 && (
+                  <div className="pt-4 border-t border-gray-100">
+                    <h4 className="text-xs font-bold text-gray-900 mb-2">Booked Timeslots</h4>
+                    <div className="space-y-1">
+                      {unavailableSlots.map((slot, idx) => (
+                        <div key={idx} className="text-[11px] text-gray-500 bg-gray-50 px-2 py-1.5 rounded-lg border border-gray-100 flex items-center justify-between">
+                          <span>{new Date(slot.start_date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+                          <span className="text-gray-300">-</span>
+                          <span>{new Date(slot.end_date).toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
                 )}
               </form>
             )}

@@ -257,6 +257,33 @@ cd RideSync
 
 ---
 
+## 🔒 Authentication Setup
+
+RideSync supports both standard Email/Password authentication and Google OAuth Single Sign-On (SSO).
+
+### 1. Standard Email Authentication
+Email authentication is fully functional out of the box using JWT (JSON Web Tokens) and bcrypt password hashing. Collaborators can simply use the `/register` endpoint or the "Get Started" page to create real accounts with real email addresses.
+
+### 2. Google OAuth SSO Setup
+The backend is already wired to accept and verify Google OAuth tokens and automatically provision user accounts. To enable Google Sign-In for your local instance or for other collaborators:
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com/).
+2. Create a new project and configure the **OAuth consent screen**.
+3. Create new **OAuth 2.0 Client IDs** (Web application type).
+4. Add `http://localhost:3000` to your Authorized JavaScript origins.
+5. Create a `.env` file in the `backend/` directory and add your Client ID:
+   ```env
+   GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+   ```
+6. Create a `.env.local` file in the `frontend/` directory and add the Client ID there as well so the frontend Google Sign-In button functions:
+   ```env
+   NEXT_PUBLIC_GOOGLE_CLIENT_ID=your-google-client-id.apps.googleusercontent.com
+   ```
+
+*(Note: If the `GOOGLE_CLIENT_ID` is missing or mismatched, the backend will securely reject the Google tokens).*
+
+---
+
 ## 🔑 Pre-Seeded Instant Demo Accounts
 
 You can test any role on the platform using 1-click demo logins on the `/login` page or with these credentials:

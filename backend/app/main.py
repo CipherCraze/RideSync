@@ -3,7 +3,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.core.database import engine, Base
-from app.routers import auth, users, vehicles, bookings, reviews, notifications, reports, admin
+from fastapi.staticfiles import StaticFiles
+from app.routers import auth, users, vehicles, bookings, reviews, notifications, reports, admin, uploads
 from app import models  # Ensure models are registered
 
 @asynccontextmanager
@@ -40,6 +41,10 @@ app.include_router(reviews.router, prefix=settings.API_V1_STR)
 app.include_router(notifications.router, prefix=settings.API_V1_STR)
 app.include_router(reports.router, prefix=settings.API_V1_STR)
 app.include_router(admin.router, prefix=settings.API_V1_STR)
+app.include_router(uploads.router, prefix=settings.API_V1_STR)
+
+# Mount static uploads directory
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
 @app.get("/")
 async def root():

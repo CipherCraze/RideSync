@@ -11,6 +11,8 @@ import { HonorScoreBadge } from "@/components/ui/HonorScoreBadge";
 import { Button } from "@/components/ui/Button";
 import { AddReviewModal } from "@/components/reviews/AddReviewModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
+import { Badge } from "@/components/ui/Badge";
+import { AlertTriangle, Receipt } from "lucide-react";
 
 export default function BookingRequestsPage() {
   const { user } = useAuth();
@@ -37,6 +39,19 @@ export default function BookingRequestsPage() {
       fetchRequests();
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to update status.");
+    }
+  };
+
+  const viewReceipt = async (bookingId: number) => {
+    try {
+      const receipt = await apiService.getBookingReceipt(bookingId);
+      if (receipt.length > 0) {
+         alert(`Receipt:\nAmount: $${receipt[0].amount}\nStatus: ${receipt[0].status}\nDate: ${formatDate(receipt[0].created_at)}`);
+      } else {
+         alert("No receipt found.");
+      }
+    } catch (err: any) {
+      alert("Failed to fetch receipt.");
     }
   };
 
@@ -100,7 +115,16 @@ export default function BookingRequestsPage() {
 
               {/* Status & Actions */}
               <div className="flex flex-row md:flex-col items-center md:items-end justify-between w-full md:w-auto gap-4 pt-4 md:pt-0 border-t md:border-0 border-gray-100">
-                <BookingStatusBadge status={req.status} />
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  <BookingStatusBadge status={req.status} />
+                  {req.payment_status === "PAID" && <Badge variant="default" className="bg-emerald-100 text-emerald-800 hover:bg-emerald-200">Paid</Badge>}
+                  {req.payment_status === "REFUNDED" && <Badge variant="outline" className="text-gray-500 border-gray-300">Refunded</Badge>}
+                  {req.is_overdue && (
+                     <Badge variant="danger" className="animate-pulse flex items-center gap-1">
+                       <AlertTriangle className="w-3 h-3" /> Overdue
+                     </Badge>
+                  )}
+                </div>
 
                 <div className="flex items-center gap-2">
                   {req.status === "PENDING" && (
@@ -122,6 +146,17 @@ export default function BookingRequestsPage() {
                         <Check className="w-4 h-4" /> Accept Request
                       </Button>
                     </>
+                  )}
+
+                  {req.payment_status === "PAID" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => viewReceipt(req.id)}
+                      className="gap-1 text-gray-600"
+                    >
+                      <Receipt className="w-4 h-4" /> Receipt
+                    </Button>
                   )}
 
                   {req.status === "CONFIRMED" && (

@@ -56,7 +56,8 @@ class BookingService:
 
         # Calculate total price
         duration = booking_in.end_date - booking_in.start_date
-        days = max(1, duration.days + (1 if duration.seconds > 0 else 0))
+        hours = duration.total_seconds() / 3600
+        days = max(0.1, hours / 24.0)
         total_price = round(days * vehicle.price_per_day, 2)
 
         booking = await self.booking_repo.create({
@@ -169,22 +170,50 @@ class BookingService:
                     points_change=-10,
                     reason=f"Cancellation of confirmed booking #{booking.id}"
                 )
+            
+            if booking.payment_status == "PAID":
+                # Mock refund flag
+                booking.payment_status = "REFUNDED"
 
         updated_booking = await self.booking_repo.update(booking, {
             "status": new_status,
+            "payment_status": booking.payment_status,
             "cancellation_reason": update_in.cancellation_reason if new_status == "CANCELLED" else booking.cancellation_reason
         })
 
         return await self.booking_repo.get_with_details(updated_booking.id)
 
     async def get_my_rentals(self, renter_id: int, status: Optional[str] = None):
-        return await self.booking_repo.get_by_renter(renter_id, status)
+        rentals = await self.booking_repo.get_by_renter(renter_id, status)
+        return self._add_overdue_flags(rentals)
 
     async def get_incoming_requests(self, owner_id: int, status: Optional[str] = None):
-        return await self.booking_repo.get_by_owner(owner_id, status)
+        requests = await self.booking_repo.get_by_owner(owner_id, status)
+        return self._add_overdue_flags(requests)
 
     async def get_booking_by_id(self, booking_id: int):
         booking = await self.booking_repo.get_with_details(booking_id)
         if not booking:
             raise HTTPException(status_code=404, detail="Booking not found.")
+        
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        
+        # Ensure end_date is naive if it isn't already for comparison
+        end_date_naive = booking.end_date.replace(tzinfo=None) if booking.end_date.tzinfo else booking.end_date
+        
+        if booking.status == "RENTAL_ACTIVE" and end_date_naive < now:
+            booking.is_overdue = True
+        else:
+            booking.is_overdue = False
+            
         return booking
+
+    def _add_overdue_flags(self, bookings):
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        for b in bookings:
+            end_date_naive = b.end_date.replace(tzinfo=None) if b.end_date.tzinfo else b.end_date
+            if b.status == "RENTAL_ACTIVE" and end_date_naive < now:
+                b.is_overdue = True
+            else:
+                b.is_overdue = False
+        return bookings

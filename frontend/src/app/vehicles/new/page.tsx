@@ -23,25 +23,40 @@ export default function NewVehiclePage() {
   const [pricePerDay, setPricePerDay] = useState(75);
   const [description, setDescription] = useState("");
   const [pickupLocation, setPickupLocation] = useState("");
-  const [imageUrls, setImageUrls] = useState<string[]>([
-    "https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1200&q=80"
-  ]);
+  const [files, setFiles] = useState<File[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const handleAddImageField = () => {
-    setImageUrls([...imageUrls, ""]);
-  };
-
-  const handleImageChange = (index: number, val: string) => {
-    const updated = [...imageUrls];
-    updated[index] = val;
-    setImageUrls(updated);
-  };
-
-  const handleRemoveImage = (index: number) => {
-    setImageUrls(imageUrls.filter((_, idx) => idx !== index));
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+      const selectedFiles = Array.from(e.target.files);
+      
+      if (selectedFiles.length > 10) {
+        setError("You can only upload a maximum of 10 files.");
+        e.target.value = "";
+        setFiles([]);
+        return;
+      }
+      
+      for (const file of selectedFiles) {
+        if (file.type.startsWith("image/") && file.size > 5 * 1024 * 1024) {
+          setError(`Image ${file.name} exceeds the 5MB size limit.`);
+          e.target.value = "";
+          setFiles([]);
+          return;
+        }
+        if (file.type.startsWith("video/") && file.size > 50 * 1024 * 1024) {
+          setError(`Video ${file.name} exceeds the 50MB size limit.`);
+          e.target.value = "";
+          setFiles([]);
+          return;
+        }
+      }
+      
+      setError("");
+      setFiles(selectedFiles);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -55,7 +70,11 @@ export default function NewVehiclePage() {
     setError("");
 
     try {
-      const validImages = imageUrls.filter((url) => url.trim().length > 0);
+      let uploadedUrls: string[] = [];
+      if (files.length > 0) {
+        uploadedUrls = await apiService.uploadFiles(files);
+      }
+      
       const created = await apiService.createVehicle({
         brand,
         model,
@@ -67,7 +86,7 @@ export default function NewVehiclePage() {
         price_per_day: Number(pricePerDay),
         description,
         pickup_location: pickupLocation,
-        images: validImages.length > 0 ? validImages : ["https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1200&q=80"],
+        images: uploadedUrls.length > 0 ? uploadedUrls : ["https://images.unsplash.com/photo-1560958089-b8a1929cea89?w=1200&q=80"],
       });
 
       router.push(`/vehicles/${created.id}`);
@@ -226,41 +245,23 @@ export default function NewVehiclePage() {
           />
         </div>
 
-        {/* Image URLs */}
+        {/* File Uploads */}
         <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <label className="block text-xs font-semibold uppercase text-gray-700">
-              Photo Image URLs
-            </label>
-            <button
-              type="button"
-              onClick={handleAddImageField}
-              className="text-xs font-semibold text-blue-600 hover:text-blue-700 flex items-center gap-1"
-            >
-              <Plus className="w-3.5 h-3.5" /> Add Image URL
-            </button>
-          </div>
-
-          {imageUrls.map((url, idx) => (
-            <div key={idx} className="flex items-center gap-2">
-              <input
-                type="url"
-                placeholder="https://images.unsplash.com/photo-..."
-                value={url}
-                onChange={(e) => handleImageChange(idx, e.target.value)}
-                className="flex-1 px-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600"
-              />
-              {imageUrls.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => handleRemoveImage(idx)}
-                  className="p-2 text-rose-500 hover:bg-rose-50 rounded-lg"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              )}
-            </div>
-          ))}
+          <label className="block text-xs font-semibold uppercase text-gray-700">
+            Upload Photos & Videos
+          </label>
+          <input
+            type="file"
+            multiple
+            accept="image/*,video/*"
+            onChange={handleFileChange}
+            className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600 bg-gray-50 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-xs file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
+          {files.length > 0 && (
+             <div className="text-xs text-gray-500">
+               {files.length} file(s) selected
+             </div>
+          )}
         </div>
 
         <div className="pt-4 border-t border-gray-100 flex justify-end gap-3">

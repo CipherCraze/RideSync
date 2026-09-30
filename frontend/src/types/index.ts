@@ -64,6 +64,8 @@ export interface Booking {
   end_date: string;
   total_price: number;
   status: 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'RENTAL_ACTIVE' | 'RETURNED' | 'COMPLETED' | 'CANCELLED';
+  payment_status: 'PENDING' | 'PAID' | 'REFUNDED';
+  is_overdue?: boolean;
   cancellation_reason?: string;
   created_at: string;
   updated_at: string;
@@ -134,4 +136,13 @@ export interface AdminAnalytics {
   total_reports: number;
   pending_reports: number;
   average_honor_score: number;
+}
+
+export interface Transaction {
+  id: number;
+  booking_id: number;
+  amount: number;
+  status: 'SUCCESS' | 'FAILED';
+  created_at: string;
+  updated_at: string;
 }

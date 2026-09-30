@@ -22,7 +22,9 @@ class BookingResponse(BaseModel):
     end_date: datetime
     total_price: float
     status: str
+    payment_status: str
     cancellation_reason: Optional[str] = None
+    is_overdue: Optional[bool] = False
     created_at: datetime
     updated_at: datetime
 

@@ -4,7 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
 from app.schemas.booking import BookingCreate, BookingStatusUpdate, BookingDetailResponse
+from app.schemas.transaction import TransactionResponse
 from app.services.booking_service import BookingService
+from app.services.transaction_service import TransactionService
 from app.models.user import User
 
 router = APIRouter(prefix="/bookings", tags=["Bookings"])
@@ -54,3 +56,22 @@ async def update_booking_status(
 ):
     service = BookingService(db)
     return await service.update_status(booking_id, current_user.id, status_update)
+
+@router.post("/{booking_id}/pay", response_model=TransactionResponse)
+async def process_mock_payment(
+    booking_id: int,
+    status: str = Query("SUCCESS"),
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = TransactionService(db)
+    return await service.process_mock_payment(booking_id, current_user.id, status)
+
+@router.get("/{booking_id}/receipt", response_model=List[TransactionResponse])
+async def get_booking_receipt(
+    booking_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = TransactionService(db)
+    return await service.get_booking_transactions(booking_id, current_user.id)

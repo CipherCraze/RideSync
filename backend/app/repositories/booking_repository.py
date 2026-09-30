@@ -29,7 +29,7 @@ class BookingRepository(BaseRepository[Booking]):
             .options(
                 selectinload(Booking.renter),
                 selectinload(Booking.owner),
-                selectinload(Booking.vehicle),
+                selectinload(Booking.vehicle).selectinload(Vehicle.images),
             )
             .where(Booking.renter_id == renter_id)
         )
@@ -45,7 +45,7 @@ class BookingRepository(BaseRepository[Booking]):
             .options(
                 selectinload(Booking.renter),
                 selectinload(Booking.owner),
-                selectinload(Booking.vehicle),
+                selectinload(Booking.vehicle).selectinload(Vehicle.images),
             )
             .where(Booking.owner_id == owner_id)
         )
@@ -72,3 +72,13 @@ class BookingRepository(BaseRepository[Booking]):
         
         result = await self.db.execute(stmt)
         return len(result.scalars().all()) > 0
+
+    async def get_upcoming_for_vehicle(self, vehicle_id: int) -> List[Booking]:
+        from datetime import timezone
+        stmt = select(Booking).where(
+            Booking.vehicle_id == vehicle_id,
+            Booking.status.in_(["PENDING", "CONFIRMED", "RENTAL_ACTIVE"]),
+            Booking.end_date >= datetime.now(timezone.utc)
+        ).order_by(Booking.start_date)
+        result = await self.db.execute(stmt)
+        return list(result.scalars().all())

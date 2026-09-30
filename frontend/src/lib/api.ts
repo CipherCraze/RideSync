@@ -10,6 +10,7 @@ import {
   ReportItem,
   HonorScoreHistory,
   AdminAnalytics,
+  Transaction,
 } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
@@ -93,6 +94,20 @@ export const apiService = {
   deleteVehicle: async (id: number) => {
     await api.delete(`/vehicles/${id}`);
   },
+  getVehicleAvailability: async (id: number) => {
+    const res = await api.get<{start_date: string; end_date: string}[]>(`/vehicles/${id}/availability`);
+    return res.data;
+  },
+  uploadFiles: async (files: FileList | File[]) => {
+    const formData = new FormData();
+    Array.from(files).forEach((file) => {
+      formData.append("files", file);
+    });
+    const res = await api.post<string[]>("/uploads/", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
 
   // Bookings
   createBooking: async (data: { vehicle_id: number; start_date: string; end_date: string }) => {
@@ -113,6 +128,14 @@ export const apiService = {
   },
   updateBookingStatus: async (id: number, data: { status: string; cancellation_reason?: string }) => {
     const res = await api.put<Booking>(`/bookings/${id}/status`, data);
+    return res.data;
+  },
+  processPayment: async (id: number, status: string = "SUCCESS") => {
+    const res = await api.post<Transaction>(`/bookings/${id}/pay?status=${status}`);
+    return res.data;
+  },
+  getBookingReceipt: async (id: number) => {
+    const res = await api.get<Transaction[]>(`/bookings/${id}/receipt`);
     return res.data;
   },
 

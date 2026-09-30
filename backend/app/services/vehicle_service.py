@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 from app.repositories.vehicle_repository import VehicleRepository
 from app.repositories.user_repository import UserRepository
+from app.repositories.booking_repository import BookingRepository
 from app.schemas.vehicle import VehicleCreate, VehicleUpdate
 from app.services.notification_service import NotificationService
 
@@ -11,6 +12,7 @@ class VehicleService:
         self.db = db
         self.vehicle_repo = VehicleRepository(db)
         self.user_repo = UserRepository(db)
+        self.booking_repo = BookingRepository(db)
         self.notification_service = NotificationService(db)
 
     async def create_vehicle(self, owner_id: int, vehicle_in: VehicleCreate):
@@ -87,6 +89,14 @@ class VehicleService:
         if not vehicle:
             raise HTTPException(status_code=404, detail="Vehicle not found")
         return vehicle
+
+    async def get_vehicle_availability(self, vehicle_id: int):
+        vehicle = await self.vehicle_repo.get(vehicle_id)
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+        bookings = await self.booking_repo.get_upcoming_for_vehicle(vehicle_id)
+        
+        return [{"start_date": b.start_date, "end_date": b.end_date} for b in bookings]
 
     async def get_owner_vehicles(self, owner_id: int):
         return await self.vehicle_repo.get_by_owner(owner_id)

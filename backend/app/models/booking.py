@@ -16,6 +16,7 @@ class Booking(Base):
     total_price: Mapped[float] = mapped_column(Float, nullable=False)
     
     status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False, index=True)
+    payment_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False) # PENDING, PAID, REFUNDED
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
@@ -26,3 +27,4 @@ class Booking(Base):
     owner = relationship("User", foreign_keys=[owner_id], back_populates="bookings_as_owner")
     vehicle = relationship("Vehicle", back_populates="bookings")
     reviews = relationship("Review", back_populates="booking", cascade="all, delete-orphan")
+    transactions = relationship("Transaction", back_populates="booking", cascade="all, delete-orphan")

@@ -6,6 +6,7 @@ from app.models.review import Review
 from app.models.notification import Notification
 from app.models.report import Report
 from app.models.honor_score_history import HonorScoreHistory
+from app.models.transaction import Transaction
 
 __all__ = [
     "User",
@@ -16,4 +17,5 @@ __all__ = [
     "Notification",
     "Report",
     "HonorScoreHistory",
+    "Transaction",
 ]
