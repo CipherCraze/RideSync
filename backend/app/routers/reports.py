@@ -17,3 +17,11 @@ async def create_report(
 ):
     service = ReportService(db)
     return await service.create_report(current_user.id, report_in)
+
+@router.get("/my-reports", response_model=List[ReportResponse])
+async def get_my_filed_reports(
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = ReportService(db)
+    return await service.get_my_reports(current_user.id)

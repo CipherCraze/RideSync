@@ -35,3 +35,6 @@ class User(Base):
     notifications = relationship("Notification", back_populates="user", cascade="all, delete-orphan")
     reports_filed = relationship("Report", foreign_keys="Report.reporter_id", back_populates="reporter")
     honor_history = relationship("HonorScoreHistory", back_populates="user", cascade="all, delete-orphan")
+    conversations_as_user1 = relationship("Conversation", foreign_keys="Conversation.user1_id", back_populates="user1")
+    conversations_as_user2 = relationship("Conversation", foreign_keys="Conversation.user2_id", back_populates="user2")
+    messages_sent = relationship("Message", foreign_keys="Message.sender_id", back_populates="sender")

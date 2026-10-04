@@ -424,8 +424,12 @@ async def seed_data():
             status="PENDING",
         )
         session.add(rep1)
-
         await session.commit()
+
+        # 8. Seed Chat Conversations & Messages
+        from scripts.seed_chat import seed_chat
+        await seed_chat(session)
+
         print("RideSync Database Seed Completed Successfully!")
 
 if __name__ == "__main__":

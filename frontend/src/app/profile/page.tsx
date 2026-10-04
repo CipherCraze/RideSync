@@ -2,7 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { UserCheck, ShieldCheck, Edit, Mail, Phone, MapPin, FileText, CheckCircle2 } from "lucide-react";
+import {
+  UserCheck,
+  ShieldCheck,
+  Edit,
+  Mail,
+  Phone,
+  MapPin,
+  FileText,
+  CheckCircle2,
+  TrendingUp,
+  TrendingDown,
+  History,
+  Star,
+  MessageSquare,
+  AlertTriangle,
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { HonorScoreBadge } from "@/components/ui/HonorScoreBadge";
 import { Button } from "@/components/ui/Button";
@@ -14,8 +29,10 @@ import { formatDate } from "@/lib/utils";
 
 export default function ProfilePage() {
   const { user, refreshUser } = useAuth();
-  const [reviews, setReviews] = useState<Review[]>([]);
+  const [receivedReviews, setReceivedReviews] = useState<Review[]>([]);
+  const [givenReviews, setGivenReviews] = useState<Review[]>([]);
   const [honorHistory, setHonorHistory] = useState<HonorScoreHistory[]>([]);
+  const [activeTab, setActiveTab] = useState<"received" | "given" | "honor">("received");
   const [licenseInput, setLicenseInput] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [verifySuccess, setVerifySuccess] = useState(false);
@@ -23,7 +40,8 @@ export default function ProfilePage() {
   useEffect(() => {
     if (user) {
       setLicenseInput(user.driving_license_number || "");
-      apiService.getUserReviews(user.id).then((r) => setReviews(r)).catch(() => {});
+      apiService.getReviewsReceived().then((r) => setReceivedReviews(r)).catch(() => {});
+      apiService.getReviewsGiven().then((r) => setGivenReviews(r)).catch(() => {});
       apiService.getHonorHistory().then((h) => setHonorHistory(h)).catch(() => {});
     }
   }, [user]);
@@ -65,17 +83,25 @@ export default function ProfilePage() {
               )}
             </div>
             <p className="text-xs text-gray-500">{user.email} • Member since {formatDate(user.created_at)}</p>
-            <div className="pt-1">
+            <div className="pt-1 flex items-center gap-2">
               <HonorScoreBadge score={user.honor_score} />
+              <span className="text-[11px] text-gray-400">Trust Rating</span>
             </div>
           </div>
         </div>
 
-        <Link href="/profile/edit">
-          <Button variant="outline" size="sm" className="gap-1.5">
-            <Edit className="w-4 h-4" /> Edit Profile
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href="/chat">
+            <Button variant="outline" size="sm" className="gap-1.5">
+              <MessageSquare className="w-4 h-4" /> Messages
+            </Button>
+          </Link>
+          <Link href="/profile/edit">
+            <Button variant="primary" size="sm" className="gap-1.5">
+              <Edit className="w-4 h-4" /> Edit Profile
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Driver License Verification Box */}
@@ -114,9 +140,37 @@ export default function ProfilePage() {
         </div>
       )}
 
-      {/* Bio & Details Grid */}
+      {/* Main Content Layout */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {/* Left Column: Account Details & Trust Meter */}
         <div className="md:col-span-1 space-y-6">
+          {/* Trust Meter */}
+          <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-subtle space-y-3">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Trust & Reputation</h3>
+            <div className="p-4 bg-gray-50 rounded-2xl text-center space-y-2">
+              <span className="text-3xl font-extrabold text-gray-900">{user.honor_score}</span>
+              <span className="text-xs text-gray-400 block -mt-1">out of 100 points</span>
+              <div className="w-full bg-gray-200 h-2 rounded-full overflow-hidden">
+                <div
+                  className={`h-full transition-all duration-500 ${
+                    user.honor_score >= 95
+                      ? "bg-emerald-500"
+                      : user.honor_score >= 80
+                      ? "bg-blue-600"
+                      : user.honor_score >= 60
+                      ? "bg-amber-500"
+                      : "bg-rose-500"
+                  }`}
+                  style={{ width: `${user.honor_score}%` }}
+                />
+              </div>
+            </div>
+            <p className="text-[11px] text-gray-500 leading-relaxed">
+              Honor scores reflect your on-time vehicle returns, accurate listings, and positive community behavior.
+            </p>
+          </div>
+
+          {/* Account Details */}
           <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-subtle space-y-4">
             <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">Account Details</h3>
 
@@ -144,22 +198,141 @@ export default function ProfilePage() {
           </div>
         </div>
 
+        {/* Right Column: Tabbed Sections (Received, Given, Honor History) */}
         <div className="md:col-span-2 space-y-6">
-          {/* Reviews Received */}
-          <div className="bg-white p-6 rounded-3xl border border-gray-200/80 shadow-subtle space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-gray-400">
-              Community Reviews ({reviews.length})
-            </h3>
+          <div className="bg-white rounded-3xl border border-gray-200/80 shadow-subtle overflow-hidden">
+            {/* Navigation Tabs */}
+            <div className="flex border-b border-gray-200/80 bg-gray-50/50">
+              <button
+                onClick={() => setActiveTab("received")}
+                className={`flex-1 py-3.5 text-xs font-bold transition-colors border-b-2 flex items-center justify-center gap-1.5 ${
+                  activeTab === "received"
+                    ? "border-blue-600 text-blue-600 bg-white"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <Star className="w-3.5 h-3.5" />
+                Received Reviews ({receivedReviews.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("given")}
+                className={`flex-1 py-3.5 text-xs font-bold transition-colors border-b-2 flex items-center justify-center gap-1.5 ${
+                  activeTab === "given"
+                    ? "border-blue-600 text-blue-600 bg-white"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                Given Reviews ({givenReviews.length})
+              </button>
+              <button
+                onClick={() => setActiveTab("honor")}
+                className={`flex-1 py-3.5 text-xs font-bold transition-colors border-b-2 flex items-center justify-center gap-1.5 ${
+                  activeTab === "honor"
+                    ? "border-blue-600 text-blue-600 bg-white"
+                    : "border-transparent text-gray-500 hover:text-gray-700"
+                }`}
+              >
+                <History className="w-3.5 h-3.5" />
+                Honor Audit Log ({honorHistory.length})
+              </button>
+            </div>
 
-            {reviews.length === 0 ? (
-              <p className="text-xs text-gray-400 italic">No reviews received yet.</p>
-            ) : (
-              <div className="space-y-3">
-                {reviews.map((r) => (
-                  <ReviewCard key={r.id} review={r} />
-                ))}
-              </div>
-            )}
+            {/* Tab Contents */}
+            <div className="p-6">
+              {activeTab === "received" && (
+                <div className="space-y-3">
+                  {receivedReviews.length === 0 ? (
+                    <div className="text-center py-12 text-xs text-gray-400">
+                      No community reviews received yet.
+                    </div>
+                  ) : (
+                    receivedReviews.map((r) => <ReviewCard key={r.id} review={r} />)
+                  )}
+                </div>
+              )}
+
+              {activeTab === "given" && (
+                <div className="space-y-3">
+                  {givenReviews.length === 0 ? (
+                    <div className="text-center py-12 text-xs text-gray-400">
+                      You haven't written any reviews yet. Complete a rental to leave feedback!
+                    </div>
+                  ) : (
+                    givenReviews.map((r) => (
+                      <div key={r.id} className="p-4 bg-gray-50/60 rounded-2xl border border-gray-100 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-gray-900">
+                            {r.review_type === "RENTER_TO_OWNER" ? "Reviewed Host" : "Reviewed Renter"}
+                          </span>
+                          <span className="text-[10px] text-gray-400">{formatDate(r.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-gray-700 italic">"{r.comment}"</p>
+                        <div className="text-[11px] text-blue-600 font-semibold">
+                          Trip #{r.booking_id} • Rating: {r.rating} / 5
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {activeTab === "honor" && (
+                <div className="space-y-4">
+                  <div className="text-xs text-gray-500">
+                    Full immutable audit history of honor score adjustments.
+                  </div>
+                  {honorHistory.length === 0 ? (
+                    <div className="text-center py-12 text-xs text-gray-400">
+                      No honor score adjustments recorded.
+                    </div>
+                  ) : (
+                    <div className="divide-y divide-gray-100">
+                      {honorHistory.map((h) => {
+                        const changeVal = h.change ?? h.points_change ?? 0;
+                        const isPos = changeVal > 0;
+                        const isZero = changeVal === 0;
+
+                        return (
+                          <div key={h.id} className="py-3 flex items-start justify-between gap-3 text-xs">
+                            <div className="space-y-1">
+                              <p className="font-semibold text-gray-900">{h.reason}</p>
+                              <div className="flex items-center gap-2 text-[10px] text-gray-400">
+                                <span>{formatDate(h.created_at)}</span>
+                                {h.reference_type && (
+                                  <span className="bg-gray-100 text-gray-600 px-1.5 py-0.2 rounded font-mono">
+                                    {h.reference_type}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="text-right flex-shrink-0">
+                              <span
+                                className={`inline-flex items-center gap-1 font-bold ${
+                                  isZero
+                                    ? "text-gray-500"
+                                    : isPos
+                                    ? "text-emerald-600"
+                                    : "text-rose-600"
+                                }`}
+                              >
+                                {isPos && <TrendingUp className="w-3.5 h-3.5" />}
+                                {!isPos && !isZero && <TrendingDown className="w-3.5 h-3.5" />}
+                                {isPos ? `+${changeVal}` : changeVal} pts
+                              </span>
+                              <span className="block text-[10px] text-gray-400">
+                                Score: {h.new_score}
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       </div>

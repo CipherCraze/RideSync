@@ -6,6 +6,10 @@ import {
   VehicleDetail,
   Booking,
   Review,
+  ReviewEligibility,
+  Conversation,
+  ConversationDetail,
+  Message,
   NotificationItem,
   ReportItem,
   HonorScoreHistory,
@@ -152,10 +156,26 @@ export const apiService = {
     const res = await api.get<Review[]>(`/reviews/user/${userId}`);
     return res.data;
   },
+  getReviewsGiven: async () => {
+    const res = await api.get<Review[]>("/reviews/given");
+    return res.data;
+  },
+  getReviewsReceived: async () => {
+    const res = await api.get<Review[]>("/reviews/received");
+    return res.data;
+  },
+  checkReviewEligibility: async (bookingId: number) => {
+    const res = await api.get<ReviewEligibility>(`/reviews/booking/${bookingId}/eligibility`);
+    return res.data;
+  },
 
   // Notifications
   getNotifications: async () => {
     const res = await api.get<NotificationItem[]>("/notifications/");
+    return res.data;
+  },
+  getNotificationUnreadCount: async () => {
+    const res = await api.get<{ unread_count: number }>("/notifications/unread-count");
     return res.data;
   },
   markNotificationRead: async (id: number) => {
@@ -165,9 +185,42 @@ export const apiService = {
     await api.put("/notifications/read-all");
   },
 
+  // Chat & Messaging
+  getConversations: async () => {
+    const res = await api.get<Conversation[]>("/chat/conversations");
+    return res.data;
+  },
+  createConversation: async (data: { recipient_id: number; booking_id?: number }) => {
+    const res = await api.post<ConversationDetail>("/chat/conversations", data);
+    return res.data;
+  },
+  getConversation: async (id: number) => {
+    const res = await api.get<ConversationDetail>(`/chat/conversations/${id}`);
+    return res.data;
+  },
+  getConversationMessages: async (conversationId: number, limit: number = 100) => {
+    const res = await api.get<Message[]>(`/chat/conversations/${conversationId}/messages`, { params: { limit } });
+    return res.data;
+  },
+  sendMessage: async (conversationId: number, content: string) => {
+    const res = await api.post<Message>(`/chat/conversations/${conversationId}/messages`, { content });
+    return res.data;
+  },
+  markConversationRead: async (conversationId: number) => {
+    await api.put(`/chat/conversations/${conversationId}/read`);
+  },
+  getChatUnreadCount: async () => {
+    const res = await api.get<{ unread_count: number }>("/chat/unread-count");
+    return res.data;
+  },
+
   // Reports
   createReport: async (data: any) => {
     const res = await api.post<ReportItem>("/reports/", data);
+    return res.data;
+  },
+  getMyReports: async () => {
+    const res = await api.get<ReportItem[]>("/reports/my-reports");
     return res.data;
   },
 
@@ -196,15 +249,23 @@ export const apiService = {
     const res = await api.put<User>(`/admin/users/${id}/suspend`);
     return res.data;
   },
-  adjustHonorScore: async (data: { user_id: number; points_change: number; reason: string }) => {
+  adjustHonorScore: async (data: { user_id: number; points_change: number; reason: string; reference_type?: string; reference_id?: number }) => {
     const res = await api.put<User>("/admin/users/honor-score", data);
+    return res.data;
+  },
+  getUserHonorHistoryAdmin: async (userId: number) => {
+    const res = await api.get<HonorScoreHistory[]>(`/admin/users/${userId}/honor-history`);
+    return res.data;
+  },
+  moderateReview: async (reviewId: number, isHidden: boolean = true) => {
+    const res = await api.put<Review>(`/admin/reviews/${reviewId}/moderate?is_hidden=${isHidden}`);
     return res.data;
   },
   getAdminReports: async (status?: string) => {
     const res = await api.get<ReportItem[]>("/admin/reports", { params: { status } });
     return res.data;
   },
-  updateAdminReport: async (id: number, data: { status: string; admin_notes?: string }) => {
+  updateAdminReport: async (id: number, data: { status: string; admin_notes?: string; honor_score_penalty?: number; hide_review?: boolean }) => {
     const res = await api.put<ReportItem>(`/admin/reports/${id}`, data);
     return res.data;
   },

@@ -14,6 +14,7 @@ class Notification(Base):
     type: Mapped[str] = mapped_column(String(50), nullable=False)
     is_read: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     link_url: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 

@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, desc
 from sqlalchemy.orm import selectinload
 from app.models.report import Report
+from app.models.review import Review
 from app.repositories.base import BaseRepository
 
 class ReportRepository(BaseRepository[Report]):
@@ -14,6 +15,8 @@ class ReportRepository(BaseRepository[Report]):
             selectinload(Report.reporter),
             selectinload(Report.reported_user),
             selectinload(Report.reported_vehicle),
+            selectinload(Report.booking),
+            selectinload(Report.review).selectinload(Review.reviewer),
         )
         if status:
             stmt = stmt.where(Report.status == status)
@@ -28,7 +31,22 @@ class ReportRepository(BaseRepository[Report]):
                 selectinload(Report.reporter),
                 selectinload(Report.reported_user),
                 selectinload(Report.reported_vehicle),
+                selectinload(Report.booking),
+                selectinload(Report.review).selectinload(Review.reviewer),
             )
             .where(Report.id == report_id)
         )
         return result.scalars().first()
+
+    async def get_by_reporter(self, reporter_id: int) -> List[Report]:
+        result = await self.db.execute(
+            select(Report)
+            .options(
+                selectinload(Report.reported_user),
+                selectinload(Report.reported_vehicle),
+                selectinload(Report.review),
+            )
+            .where(Report.reporter_id == reporter_id)
+            .order_by(desc(Report.created_at))
+        )
+        return list(result.scalars().all())

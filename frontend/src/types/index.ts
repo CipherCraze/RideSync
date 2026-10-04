@@ -83,8 +83,47 @@ export interface Review {
   rating: number;
   comment: string;
   review_type: 'RENTER_TO_OWNER' | 'OWNER_TO_RENTER' | 'VEHICLE';
+  is_hidden?: boolean;
   created_at: string;
   reviewer?: User;
+  reviewee?: User;
+}
+
+export interface ReviewEligibility {
+  booking_id: number;
+  can_review: boolean;
+  already_reviewed: boolean;
+  reason?: string;
+  suggested_reviewee_id?: number;
+  suggested_review_type?: string;
+}
+
+export interface Message {
+  id: number;
+  conversation_id: number;
+  sender_id: number;
+  content: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: User;
+}
+
+export interface Conversation {
+  id: number;
+  user1_id: number;
+  user2_id: number;
+  booking_id?: number;
+  created_at: string;
+  updated_at: string;
+  user1?: User;
+  user2?: User;
+  other_user?: User;
+  last_message?: Message;
+  unread_count: number;
+}
+
+export interface ConversationDetail extends Conversation {
+  messages: Message[];
 }
 
 export interface NotificationItem {
@@ -95,6 +134,7 @@ export interface NotificationItem {
   type: string;
   is_read: boolean;
   link_url?: string;
+  payload_json?: string;
   created_at: string;
 }
 
@@ -103,15 +143,20 @@ export interface ReportItem {
   reporter_id: number;
   reported_user_id?: number;
   reported_vehicle_id?: number;
-  reason: 'FAKE_LISTING' | 'INAPPROPRIATE_BEHAVIOR' | 'VEHICLE_DAMAGE' | 'FRAUD' | 'LATE_RETURN' | 'OTHER';
+  booking_id?: number;
+  review_id?: number;
+  reason: string;
   details: string;
-  status: 'PENDING' | 'INVESTIGATING' | 'RESOLVED' | 'DISMISSED';
+  description?: string;
+  status: 'OPEN' | 'UNDER_REVIEW' | 'RESOLVED' | 'REJECTED' | 'PENDING' | 'DISMISSED';
   admin_notes?: string;
   created_at: string;
   updated_at: string;
+  resolved_at?: string;
   reporter?: User;
   reported_user?: User;
   reported_vehicle?: Vehicle;
+  review?: Review;
 }
 
 export interface HonorScoreHistory {
@@ -120,8 +165,12 @@ export interface HonorScoreHistory {
   points_change: number;
   previous_score: number;
   new_score: number;
+  change?: number;
+  old_score?: number;
   category: string;
   reason: string;
+  reference_type?: string;
+  reference_id?: number;
   created_at: string;
 }
 

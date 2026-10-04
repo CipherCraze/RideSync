@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import String, Integer, DateTime, Text, ForeignKey
+from sqlalchemy import String, Integer, Boolean, DateTime, Text, ForeignKey, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.core.database import Base
 
@@ -15,11 +15,14 @@ class Review(Base):
     rating: Mapped[int] = mapped_column(Integer, nullable=False)
     comment: Mapped[str] = mapped_column(Text, nullable=False)
     review_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     # Relationships
     booking = relationship("Booking", back_populates="reviews")
     reviewer = relationship("User", foreign_keys=[reviewer_id], back_populates="reviews_given")
     reviewee = relationship("User", foreign_keys=[reviewee_id], back_populates="reviews_received")
     vehicle = relationship("Vehicle", back_populates="reviews")
+    reports = relationship("Report", back_populates="review")

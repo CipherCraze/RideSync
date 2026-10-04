@@ -7,6 +7,8 @@ from app.models.notification import Notification
 from app.models.report import Report
 from app.models.honor_score_history import HonorScoreHistory
 from app.models.transaction import Transaction
+from app.models.conversation import Conversation
+from app.models.message import Message
 
 __all__ = [
     "User",
@@ -18,4 +20,6 @@ __all__ = [
     "Report",
     "HonorScoreHistory",
     "Transaction",
+    "Conversation",
+    "Message",
 ]
