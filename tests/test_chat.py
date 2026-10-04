@@ -94,3 +94,41 @@ async def test_chat_lifecycle_and_security(
     )
     assert sec_send.status_code == 403
     assert "not authorized" in sec_send.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_empty_message_and_notification(
+    client: AsyncClient,
+    auth_headers_user1,
+    auth_headers_user2
+):
+    # 1. Create or find conversation
+    conv_res = await client.post(
+        "/api/chat/conversations",
+        json={"recipient_id": 2},
+        headers=auth_headers_user1,
+    )
+    assert conv_res.status_code in [200, 201]
+    conv_id = conv_res.json()["id"]
+
+    # 2. Empty message fails validation
+    empty_res = await client.post(
+        f"/api/chat/conversations/{conv_id}/messages",
+        json={"content": ""},
+        headers=auth_headers_user1,
+    )
+    assert empty_res.status_code in [400, 422]
+
+    # 3. Valid message generates MESSAGE_RECEIVED notification for recipient
+    msg_res = await client.post(
+        f"/api/chat/conversations/{conv_id}/messages",
+        json={"content": "Notification check message"},
+        headers=auth_headers_user1,
+    )
+    assert msg_res.status_code == 201
+
+    notif_res = await client.get("/api/notifications/", headers=auth_headers_user2)
+    assert notif_res.status_code == 200
+    nots = notif_res.json()
+    assert any(n["type"] == "MESSAGE_RECEIVED" for n in nots)
+
