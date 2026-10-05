@@ -5,7 +5,12 @@ from app.core.database import get_db
 from app.core.deps import get_current_admin
 from app.schemas.admin import AdminAnalyticsResponse
 from app.schemas.user import UserResponse
-from app.schemas.vehicle import VehicleResponse
+from app.schemas.vehicle import (
+    VehicleResponse,
+    VehicleRejectionRequest,
+    VehicleDocumentSchema,
+    VehicleDocumentVerify,
+)
 from app.schemas.report import ReportResponse, ReportUpdate
 from app.schemas.honor import HonorScoreAdjustment, HonorScoreHistoryResponse
 from app.schemas.review import ReviewResponse, ReviewModerationRequest
@@ -43,6 +48,44 @@ async def approve_vehicle(
 ):
     service = AdminService(db)
     return await service.approve_vehicle(vehicle_id)
+
+@router.put("/vehicles/{vehicle_id}/reject", response_model=VehicleResponse)
+async def reject_vehicle(
+    vehicle_id: int,
+    rejection: VehicleRejectionRequest,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AdminService(db)
+    return await service.reject_vehicle(vehicle_id, rejection.reason)
+
+@router.get("/documents/pending", response_model=List[VehicleDocumentSchema])
+async def get_pending_documents(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AdminService(db)
+    return await service.get_pending_documents()
+
+@router.put("/documents/{doc_id}/verify", response_model=VehicleDocumentSchema)
+async def verify_document(
+    doc_id: int,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AdminService(db)
+    return await service.verify_document(doc_id, admin.id)
+
+@router.put("/documents/{doc_id}/reject", response_model=VehicleDocumentSchema)
+async def reject_document(
+    doc_id: int,
+    doc_verify: VehicleDocumentVerify,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    service = AdminService(db)
+    return await service.reject_document(doc_id, admin.id, doc_verify.rejection_reason or "Document rejected by admin")
+
 
 @router.get("/pending-verifications", response_model=List[UserResponse])
 async def get_pending_verifications(

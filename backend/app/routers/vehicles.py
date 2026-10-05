@@ -3,7 +3,14 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.schemas.vehicle import VehicleCreate, VehicleUpdate, VehicleResponse, VehicleDetailResponse
+from app.schemas.vehicle import (
+    VehicleCreate,
+    VehicleUpdate,
+    VehicleResponse,
+    VehicleDetailResponse,
+    VehicleDocumentSchema,
+    VehicleDocumentCreate,
+)
 from app.services.vehicle_service import VehicleService
 from app.models.user import User
 
@@ -89,3 +96,32 @@ async def delete_vehicle(
 ):
     service = VehicleService(db)
     await service.delete_vehicle(vehicle_id, current_user.id)
+
+@router.post("/{vehicle_id}/documents", response_model=VehicleDocumentSchema, status_code=status.HTTP_201_CREATED)
+async def add_vehicle_document(
+    vehicle_id: int,
+    doc_in: VehicleDocumentCreate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = VehicleService(db)
+    return await service.add_document(vehicle_id, current_user.id, doc_in)
+
+@router.get("/{vehicle_id}/documents", response_model=List[VehicleDocumentSchema])
+async def get_vehicle_documents(
+    vehicle_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    service = VehicleService(db)
+    return await service.get_documents(vehicle_id)
+
+@router.put("/{vehicle_id}/submit", response_model=VehicleDetailResponse)
+async def submit_vehicle_for_review(
+    vehicle_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    service = VehicleService(db)
+    await service.submit_for_review(vehicle_id, current_user.id)
+    return await service.get_vehicle_by_id(vehicle_id)
+

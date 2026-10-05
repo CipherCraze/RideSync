@@ -22,6 +22,8 @@ class Vehicle(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     
+    status: Mapped[str] = mapped_column(String(20), default="DRAFT", nullable=False, index=True) # DRAFT, PENDING, APPROVED, REJECTED
+    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
     is_available: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     rating_avg: Mapped[float] = mapped_column(Float, default=5.0, nullable=False)
@@ -33,5 +35,7 @@ class Vehicle(Base):
     # Relationships
     owner = relationship("User", back_populates="vehicles")
     images = relationship("VehicleImage", back_populates="vehicle", cascade="all, delete-orphan")
+    documents = relationship("VehicleDocument", back_populates="vehicle", cascade="all, delete-orphan")
     bookings = relationship("Booking", back_populates="vehicle", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="vehicle", cascade="all, delete-orphan")
+

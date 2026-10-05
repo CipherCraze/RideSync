@@ -15,7 +15,9 @@ import {
   HonorScoreHistory,
   AdminAnalytics,
   Transaction,
+  VehicleDocument,
 } from "@/types";
+
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -102,6 +104,18 @@ export const apiService = {
     const res = await api.get<{start_date: string; end_date: string}[]>(`/vehicles/${id}/availability`);
     return res.data;
   },
+  submitVehicleForReview: async (id: number) => {
+    const res = await api.put<VehicleDetail>(`/vehicles/${id}/submit`);
+    return res.data;
+  },
+  addVehicleDocument: async (vehicleId: number, data: { document_type: string; document_url: string; document_number?: string; expiry_date?: string }) => {
+    const res = await api.post<VehicleDocument>(`/vehicles/${vehicleId}/documents`, data);
+    return res.data;
+  },
+  getVehicleDocuments: async (vehicleId: number) => {
+    const res = await api.get<VehicleDocument[]>(`/vehicles/${vehicleId}/documents`);
+    return res.data;
+  },
   uploadFiles: async (files: FileList | File[]) => {
     const formData = new FormData();
     Array.from(files).forEach((file) => {
@@ -112,6 +126,15 @@ export const apiService = {
     });
     return res.data;
   },
+  uploadDocument: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await api.post<{ url: string; filename: string; content_type: string; size: number }>("/uploads/document", formData, {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+    return res.data;
+  },
+
 
   // Bookings
   createBooking: async (data: { vehicle_id: number; start_date: string; end_date: string }) => {
@@ -237,6 +260,23 @@ export const apiService = {
     const res = await api.put<Vehicle>(`/admin/vehicles/${id}/approve`);
     return res.data;
   },
+  rejectVehicle: async (id: number, reason: string) => {
+    const res = await api.put<Vehicle>(`/admin/vehicles/${id}/reject`, { reason });
+    return res.data;
+  },
+  getPendingDocuments: async () => {
+    const res = await api.get<VehicleDocument[]>("/admin/documents/pending");
+    return res.data;
+  },
+  verifyDocument: async (id: number) => {
+    const res = await api.put<VehicleDocument>(`/admin/documents/${id}/verify`);
+    return res.data;
+  },
+  rejectDocument: async (id: number, reason: string) => {
+    const res = await api.put<VehicleDocument>(`/admin/documents/${id}/reject`, { rejection_reason: reason, status: "REJECTED" });
+    return res.data;
+  },
+
   getPendingVerifications: async () => {
     const res = await api.get<User[]>("/admin/pending-verifications");
     return res.data;

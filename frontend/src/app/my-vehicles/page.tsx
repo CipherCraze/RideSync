@@ -88,16 +88,25 @@ export default function MyVehiclesPage() {
                 <div className="relative aspect-16/10 bg-gray-100">
                   <img src={primaryImg} alt={`${v.brand} ${v.model}`} className="w-full h-full object-cover" />
                   <div className="absolute top-3 left-3 flex gap-1.5">
-                    {v.is_approved ? (
-                      <Badge variant="success" className="gap-1 shadow-sm">
+                    {v.status === "APPROVED" || (v.is_approved && !v.status) ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-600 text-white px-2.5 py-0.5 rounded-full shadow-sm">
                         <CheckCircle2 className="w-3 h-3" /> Live
-                      </Badge>
+                      </span>
+                    ) : v.status === "DRAFT" ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-gray-700 text-white px-2.5 py-0.5 rounded-full shadow-sm">
+                        Draft
+                      </span>
+                    ) : v.status === "REJECTED" ? (
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-rose-600 text-white px-2.5 py-0.5 rounded-full shadow-sm">
+                        Action Needed
+                      </span>
                     ) : (
-                      <Badge variant="warning" className="gap-1 shadow-sm">
-                        <Clock className="w-3 h-3" /> Pending Admin Approval
-                      </Badge>
+                      <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-amber-600 text-white px-2.5 py-0.5 rounded-full shadow-sm">
+                        <Clock className="w-3 h-3" /> Under Review
+                      </span>
                     )}
                   </div>
+
                   <div className="absolute bottom-3 right-3 bg-white/95 backdrop-blur-xs px-2.5 py-1 rounded-xl text-xs font-bold text-gray-900 shadow-sm">
                     {formatCurrency(v.price_per_day)}/day
                   </div>

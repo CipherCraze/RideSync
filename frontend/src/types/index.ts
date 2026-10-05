@@ -21,10 +21,30 @@ export interface UserProfile extends User {
   honor_category: 'Trusted' | 'Good' | 'Warning' | 'Restricted';
 }
 
+export type VehicleAngle = 'FRONT' | 'REAR' | 'SIDE_LEFT' | 'SIDE_RIGHT' | 'INTERIOR' | 'DASHBOARD' | 'OTHER';
+export type VehicleStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED';
+export type VehicleDocumentType = 'RC' | 'PUC' | 'SERVICE_RECORD' | 'INSURANCE';
+export type VehicleDocumentStatus = 'PENDING' | 'VERIFIED' | 'REJECTED';
+
 export interface VehicleImage {
   id?: number;
   image_url: string;
+  angle?: VehicleAngle;
   is_primary: boolean;
+}
+
+export interface VehicleDocument {
+  id: number;
+  vehicle_id: number;
+  document_type: VehicleDocumentType;
+  document_url: string;
+  document_number?: string;
+  expiry_date?: string;
+  status: VehicleDocumentStatus;
+  rejection_reason?: string;
+  uploaded_at: string;
+  verified_at?: string;
+  verified_by_id?: number;
 }
 
 export interface Vehicle {
@@ -42,18 +62,22 @@ export interface Vehicle {
   pickup_location: string;
   latitude?: number;
   longitude?: number;
+  status?: VehicleStatus;
+  rejection_reason?: string;
   is_approved: boolean;
   is_available: boolean;
   rating_avg: number;
   rating_count: number;
   created_at: string;
   images: VehicleImage[];
+  documents?: VehicleDocument[];
   owner?: User;
 }
 
 export interface VehicleDetail extends Vehicle {
   owner: User;
 }
+
 
 export interface Booking {
   id: number;
@@ -184,7 +208,9 @@ export interface AdminAnalytics {
   completed_bookings: number;
   total_reports: number;
   pending_reports: number;
+  pending_documents?: number;
   average_honor_score: number;
+
 }
 
 export interface Transaction {

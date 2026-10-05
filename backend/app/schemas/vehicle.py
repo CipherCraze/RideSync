@@ -1,14 +1,45 @@
 from datetime import datetime
-from typing import List, Optional
+from typing import List, Optional, Union
 from pydantic import BaseModel, Field, ConfigDict
 from app.schemas.user import UserResponse
 
 class VehicleImageSchema(BaseModel):
     id: Optional[int] = None
     image_url: str
+    angle: Optional[str] = "OTHER"  # FRONT, REAR, SIDE_LEFT, SIDE_RIGHT, INTERIOR, DASHBOARD, OTHER
     is_primary: bool = False
 
     model_config = ConfigDict(from_attributes=True)
+
+class VehicleImageCreate(BaseModel):
+    image_url: str
+    angle: Optional[str] = "OTHER"
+    is_primary: bool = False
+
+class VehicleDocumentSchema(BaseModel):
+    id: int
+    vehicle_id: int
+    document_type: str  # RC, PUC, SERVICE_RECORD, INSURANCE
+    document_url: str
+    document_number: Optional[str] = None
+    expiry_date: Optional[datetime] = None
+    status: str = "PENDING"  # PENDING, VERIFIED, REJECTED
+    rejection_reason: Optional[str] = None
+    uploaded_at: datetime
+    verified_at: Optional[datetime] = None
+    verified_by_id: Optional[int] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class VehicleDocumentCreate(BaseModel):
+    document_type: str  # RC, PUC, SERVICE_RECORD, INSURANCE
+    document_url: str
+    document_number: Optional[str] = None
+    expiry_date: Optional[datetime] = None
+
+class VehicleDocumentVerify(BaseModel):
+    status: str  # VERIFIED or REJECTED
+    rejection_reason: Optional[str] = None
 
 class VehicleBase(BaseModel):
     brand: str
@@ -25,7 +56,9 @@ class VehicleBase(BaseModel):
     longitude: Optional[float] = None
 
 class VehicleCreate(VehicleBase):
-    images: List[str] = []  # Image URLs
+    status: Optional[str] = "PENDING"  # DRAFT or PENDING
+    images: List[Union[str, VehicleImageCreate]] = []
+    documents: Optional[List[VehicleDocumentCreate]] = []
 
 class VehicleUpdate(BaseModel):
     brand: Optional[str] = None
@@ -39,17 +72,25 @@ class VehicleUpdate(BaseModel):
     description: Optional[str] = None
     pickup_location: Optional[str] = None
     is_available: Optional[bool] = None
-    images: Optional[List[str]] = None
+    status: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    images: Optional[List[Union[str, VehicleImageCreate]]] = None
+
+class VehicleRejectionRequest(BaseModel):
+    reason: str = Field(..., min_length=5, description="Reason for rejecting vehicle listing")
 
 class VehicleResponse(VehicleBase):
     id: int
     owner_id: int
+    status: str = "APPROVED"
+    rejection_reason: Optional[str] = None
     is_approved: bool
     is_available: bool
     rating_avg: float
     rating_count: int
     created_at: datetime
     images: List[VehicleImageSchema] = []
+    documents: List[VehicleDocumentSchema] = []
 
     model_config = ConfigDict(from_attributes=True)
 

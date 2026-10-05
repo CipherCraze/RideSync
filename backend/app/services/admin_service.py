@@ -1,5 +1,6 @@
+from datetime import datetime, timezone
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
+from sqlalchemy import select, func, or_
 from fastapi import HTTPException
 from app.repositories.user_repository import UserRepository
 from app.repositories.vehicle_repository import VehicleRepository
@@ -9,6 +10,7 @@ from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.models.booking import Booking
 from app.models.report import Report
+from app.models.vehicle_document import VehicleDocument
 from app.services.honor_service import HonorService
 from app.services.notification_service import NotificationService
 
@@ -32,7 +34,7 @@ class AdminService:
 
         # Vehicle counts
         total_vehicles = await self.vehicle_repo.count()
-        res_p_veh = await self.db.execute(select(func.count(Vehicle.id)).where(Vehicle.is_approved == False))
+        res_p_veh = await self.db.execute(select(func.count(Vehicle.id)).where(or_(Vehicle.status == "PENDING", Vehicle.is_approved == False)))
         pending_vehicles = res_p_veh.scalar() or 0
 
         # Booking counts
@@ -48,6 +50,10 @@ class AdminService:
         res_p_rep = await self.db.execute(select(func.count(Report.id)).where(Report.status == "PENDING"))
         pending_reports = res_p_rep.scalar() or 0
 
+        # Pending documents count
+        res_p_doc = await self.db.execute(select(func.count(VehicleDocument.id)).where(VehicleDocument.status == "PENDING"))
+        pending_documents = res_p_doc.scalar() or 0
+
         return {
             "total_users": total_users,
             "verified_users": verified_users,
@@ -58,6 +64,7 @@ class AdminService:
             "completed_bookings": completed_bookings,
             "total_reports": total_reports,
             "pending_reports": pending_reports,
+            "pending_documents": pending_documents,
             "average_honor_score": avg_honor,
         }
 
@@ -79,7 +86,7 @@ class AdminService:
             user_id=user_id,
             title="Account Verified!",
             message="Your driving license has been verified by RideSync admins! You earned +10 Honor Score points.",
-            notification_type="ADMIN_VERIFICATION"
+            notif_type="ADMIN_VERIFICATION"
         )
 
         return user
@@ -89,17 +96,93 @@ class AdminService:
         if not vehicle:
             raise HTTPException(status_code=404, detail="Vehicle not found")
 
-        await self.vehicle_repo.update(vehicle, {"is_approved": True})
+        await self.vehicle_repo.update(vehicle, {
+            "status": "APPROVED",
+            "is_approved": True,
+            "rejection_reason": None,
+        })
 
         await self.notification_service.notify(
             user_id=vehicle.owner_id,
             title="Vehicle Listing Approved",
             message=f"Your {vehicle.brand} {vehicle.model} listing has been approved and is now live on the marketplace!",
-            notification_type="ADMIN_VERIFICATION",
+            notif_type="ADMIN_VERIFICATION",
             link_url=f"/vehicles/{vehicle.id}"
         )
 
-        return vehicle
+        return await self.vehicle_repo.get_with_details(vehicle.id)
+
+    async def reject_vehicle(self, vehicle_id: int, reason: str):
+        vehicle = await self.vehicle_repo.get(vehicle_id)
+        if not vehicle:
+            raise HTTPException(status_code=404, detail="Vehicle not found")
+
+        await self.vehicle_repo.update(vehicle, {
+            "status": "REJECTED",
+            "is_approved": False,
+            "rejection_reason": reason,
+        })
+
+        await self.notification_service.notify(
+            user_id=vehicle.owner_id,
+            title="Vehicle Listing Needs Changes",
+            message=f"Your {vehicle.brand} {vehicle.model} listing was not approved: {reason}. Please update the required details and resubmit.",
+            notif_type="ADMIN_VERIFICATION",
+            link_url=f"/vehicles/{vehicle.id}/edit"
+        )
+
+        return await self.vehicle_repo.get_with_details(vehicle.id)
+
+    async def get_pending_documents(self):
+        return await self.vehicle_repo.get_all_pending_documents()
+
+    async def verify_document(self, doc_id: int, admin_id: int):
+        doc = await self.vehicle_repo.get_document_by_id(doc_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        updated_doc = await self.vehicle_repo.update_document_status(
+            doc_id=doc_id,
+            status="VERIFIED",
+            verified_by_id=admin_id,
+            rejection_reason=None
+        )
+
+        vehicle = await self.vehicle_repo.get(doc.vehicle_id)
+        if vehicle:
+            await self.notification_service.notify(
+                user_id=vehicle.owner_id,
+                title=f"{doc.document_type} Document Verified",
+                message=f"Your {doc.document_type} for {vehicle.brand} {vehicle.model} has been verified by admin.",
+                notif_type="ADMIN_VERIFICATION",
+                link_url=f"/vehicles/{vehicle.id}"
+            )
+
+        return updated_doc
+
+    async def reject_document(self, doc_id: int, admin_id: int, reason: str):
+        doc = await self.vehicle_repo.get_document_by_id(doc_id)
+        if not doc:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        updated_doc = await self.vehicle_repo.update_document_status(
+            doc_id=doc_id,
+            status="REJECTED",
+            verified_by_id=admin_id,
+            rejection_reason=reason
+        )
+
+        vehicle = await self.vehicle_repo.get(doc.vehicle_id)
+        if vehicle:
+            await self.notification_service.notify(
+                user_id=vehicle.owner_id,
+                title=f"{doc.document_type} Document Rejected",
+                message=f"Your {doc.document_type} for {vehicle.brand} {vehicle.model} was rejected: {reason}.",
+                notif_type="ADMIN_VERIFICATION",
+                link_url=f"/vehicles/{vehicle.id}/edit"
+            )
+
+        return updated_doc
 
     async def toggle_user_suspension(self, user_id: int):
         user = await self.user_repo.get(user_id)
@@ -114,7 +197,7 @@ class AdminService:
             user_id=user_id,
             title=f"Account Status Changed: {status_str.capitalize()}",
             message=f"Your account has been {status_str} by platform administration.",
-            notification_type="ADMIN_VERIFICATION"
+            notif_type="ADMIN_VERIFICATION"
         )
 
         return user

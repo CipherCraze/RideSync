@@ -10,4 +10,6 @@ class AdminAnalyticsResponse(BaseModel):
     completed_bookings: int
     total_reports: int
     pending_reports: int
+    pending_documents: int = 0
     average_honor_score: float
+

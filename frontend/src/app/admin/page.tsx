@@ -17,10 +17,12 @@ import {
   Eye,
   Clock,
   ExternalLink,
+  Camera,
+  Calendar,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiService } from "@/lib/api";
-import { AdminAnalytics, Vehicle, User, ReportItem } from "@/types";
+import { AdminAnalytics, Vehicle, User, ReportItem, VehicleDocument } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { HonorScoreBadge } from "@/components/ui/HonorScoreBadge";
@@ -34,10 +36,11 @@ export default function AdminPage() {
 
   const [analytics, setAnalytics] = useState<AdminAnalytics | null>(null);
   const [pendingVehicles, setPendingVehicles] = useState<Vehicle[]>([]);
+  const [pendingDocuments, setPendingDocuments] = useState<VehicleDocument[]>([]);
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"VEHICLES" | "USERS" | "REPORTS" | "HONOR">("REPORTS");
+  const [activeTab, setActiveTab] = useState<"VEHICLES" | "DOCUMENTS" | "USERS" | "REPORTS" | "HONOR">("VEHICLES");
 
   // Report filter and resolution state
   const [reportStatusFilter, setReportStatusFilter] = useState<string>("ALL");
@@ -47,6 +50,16 @@ export default function AdminPage() {
   const [penaltyPoints, setPenaltyPoints] = useState<number>(0);
   const [hideAbusiveReview, setHideAbusiveReview] = useState<boolean>(false);
   const [resolvingReport, setResolvingReport] = useState<boolean>(false);
+
+  // Vehicle Rejection Modal
+  const [selectedVehicleForReject, setSelectedVehicleForReject] = useState<Vehicle | null>(null);
+  const [vehicleRejectReason, setVehicleRejectReason] = useState<string>("");
+  const [rejectingVehicle, setRejectingVehicle] = useState(false);
+
+  // Document Rejection Modal
+  const [selectedDocForReject, setSelectedDocForReject] = useState<VehicleDocument | null>(null);
+  const [docRejectReason, setDocRejectReason] = useState<string>("");
+  const [rejectingDoc, setRejectingDoc] = useState(false);
 
   // Honor score adjustment modal state
   const [selectedUserForHonor, setSelectedUserForHonor] = useState<User | null>(null);
@@ -59,12 +72,14 @@ export default function AdminPage() {
     Promise.all([
       apiService.getAdminAnalytics(),
       apiService.getPendingVehicles(),
+      apiService.getPendingDocuments().catch(() => []),
       apiService.getPendingVerifications(),
       apiService.getAdminReports(),
     ])
-      .then(([analyticsData, vehiclesData, usersData, reportsData]) => {
+      .then(([analyticsData, vehiclesData, docsData, usersData, reportsData]) => {
         setAnalytics(analyticsData);
         setPendingVehicles(vehiclesData);
+        setPendingDocuments(docsData);
         setPendingUsers(usersData);
         setReports(reportsData);
       })
@@ -91,6 +106,49 @@ export default function AdminPage() {
     }
   };
 
+  const handleRejectVehicleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedVehicleForReject || !vehicleRejectReason.trim()) return;
+
+    setRejectingVehicle(true);
+    try {
+      await apiService.rejectVehicle(selectedVehicleForReject.id, vehicleRejectReason);
+      setSelectedVehicleForReject(null);
+      setVehicleRejectReason("");
+      fetchAdminData();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to reject vehicle.");
+    } finally {
+      setRejectingVehicle(false);
+    }
+  };
+
+  const handleVerifyDocument = async (docId: number) => {
+    try {
+      await apiService.verifyDocument(docId);
+      fetchAdminData();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to verify document.");
+    }
+  };
+
+  const handleRejectDocSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedDocForReject || !docRejectReason.trim()) return;
+
+    setRejectingDoc(true);
+    try {
+      await apiService.rejectDocument(selectedDocForReject.id, docRejectReason);
+      setSelectedDocForReject(null);
+      setDocRejectReason("");
+      fetchAdminData();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to reject document.");
+    } finally {
+      setRejectingDoc(false);
+    }
+  };
+
   const handleVerifyUser = async (id: number) => {
     try {
       await apiService.verifyUser(id);
@@ -100,21 +158,13 @@ export default function AdminPage() {
     }
   };
 
-  const handleToggleSuspendUser = async (id: number) => {
+  const handleSuspendUser = async (id: number) => {
     try {
       await apiService.suspendUser(id);
       fetchAdminData();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to toggle user suspension.");
+      alert(err.response?.data?.detail || "Failed to change user suspension status.");
     }
-  };
-
-  const handleOpenResolveModal = (report: ReportItem) => {
-    setSelectedReport(report);
-    setResolveStatus("RESOLVED");
-    setAdminNote(report.admin_notes || "");
-    setPenaltyPoints(0);
-    setHideAbusiveReview(!!report.review_id);
   };
 
   const handleResolveReportSubmit = async (e: React.FormEvent) => {
@@ -125,26 +175,20 @@ export default function AdminPage() {
     try {
       await apiService.updateAdminReport(selectedReport.id, {
         status: resolveStatus,
-        admin_notes: adminNote.trim() || undefined,
-        honor_score_penalty: penaltyPoints > 0 ? penaltyPoints : undefined,
+        admin_notes: adminNote,
+        honor_score_penalty: Number(penaltyPoints),
         hide_review: hideAbusiveReview,
       });
 
       setSelectedReport(null);
+      setAdminNote("");
+      setPenaltyPoints(0);
+      setHideAbusiveReview(false);
       fetchAdminData();
     } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to update report status.");
+      alert(err.response?.data?.detail || "Failed to update report resolution.");
     } finally {
       setResolvingReport(false);
-    }
-  };
-
-  const handleToggleHideReview = async (reviewId: number, currentlyHidden: boolean) => {
-    try {
-      await apiService.moderateReview(reviewId, !currentlyHidden);
-      fetchAdminData();
-    } catch (err: any) {
-      alert(err.response?.data?.detail || "Failed to moderate review.");
     }
   };
 
@@ -195,32 +239,32 @@ export default function AdminPage() {
 
       {/* Analytics Overview Cards */}
       {analytics && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-4">
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-subtle space-y-1">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-1">
             <span className="text-[11px] font-semibold uppercase text-gray-400">Total Users</span>
             <span className="text-2xl font-extrabold text-gray-900 block">{analytics.total_users}</span>
             <span className="text-[11px] text-emerald-600 font-medium">{analytics.verified_users} Verified Drivers</span>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-subtle space-y-1">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-1">
             <span className="text-[11px] font-semibold uppercase text-gray-400">Vehicle Approvals</span>
-            <span className="text-2xl font-extrabold text-gray-900 block">{analytics.pending_vehicles}</span>
+            <span className="text-2xl font-extrabold text-gray-900 block">{pendingVehicles.length}</span>
             <span className="text-[11px] text-amber-600 font-bold">Pending Review</span>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-subtle space-y-1">
-            <span className="text-[11px] font-semibold uppercase text-gray-400">Active Bookings</span>
-            <span className="text-2xl font-extrabold text-blue-600 block">{analytics.active_bookings}</span>
-            <span className="text-[11px] text-gray-500">{analytics.completed_bookings} Completed</span>
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-1">
+            <span className="text-[11px] font-semibold uppercase text-gray-400">Document Queue</span>
+            <span className="text-2xl font-extrabold text-purple-600 block">{pendingDocuments.length}</span>
+            <span className="text-[11px] text-purple-600 font-medium">Pending Verification</span>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-subtle space-y-1">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-1">
             <span className="text-[11px] font-semibold uppercase text-gray-400">Open Disputes</span>
             <span className="text-2xl font-extrabold text-rose-600 block">{analytics.pending_reports}</span>
             <span className="text-[11px] text-gray-500">{analytics.total_reports} Total Filed</span>
           </div>
 
-          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-subtle space-y-1 col-span-2 sm:col-span-1">
+          <div className="bg-white p-5 rounded-2xl border border-gray-200/80 shadow-sm space-y-1 col-span-2 sm:col-span-1">
             <span className="text-[11px] font-semibold uppercase text-gray-400">Avg Honor Score</span>
             <span className="text-2xl font-extrabold text-gray-900 block">{analytics.average_honor_score} Pts</span>
             <span className="text-[11px] text-emerald-600 font-bold">Platform Trust Meter</span>
@@ -230,6 +274,39 @@ export default function AdminPage() {
 
       {/* Control Tabs */}
       <div className="flex items-center gap-2 border-b border-gray-100 pb-2 overflow-x-auto">
+        <button
+          onClick={() => setActiveTab("VEHICLES")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+            activeTab === "VEHICLES"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Vehicle Approvals ({pendingVehicles.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab("DOCUMENTS")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+            activeTab === "DOCUMENTS"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Document Queue ({pendingDocuments.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab("USERS")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
+            activeTab === "USERS"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Driver Identity Queue ({pendingUsers.length})
+        </button>
+
         <button
           onClick={() => setActiveTab("REPORTS")}
           className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
@@ -249,52 +326,250 @@ export default function AdminPage() {
               : "bg-gray-100 text-gray-600 hover:bg-gray-200"
           }`}
         >
-          Honor Score Engine
-        </button>
-
-        <button
-          onClick={() => setActiveTab("VEHICLES")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
-            activeTab === "VEHICLES"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          Vehicle Approvals ({pendingVehicles.length})
-        </button>
-
-        <button
-          onClick={() => setActiveTab("USERS")}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap ${
-            activeTab === "USERS"
-              ? "bg-blue-600 text-white shadow-sm"
-              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-          }`}
-        >
-          Driver Verifications ({pendingUsers.length})
+          Honor Adjustment Engine
         </button>
       </div>
 
-      {/* Tab: Reports & Review Moderation */}
-      {activeTab === "REPORTS" && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <h3 className="text-sm font-bold text-gray-900">User Disputes & Moderation Tickets</h3>
-            <div className="flex items-center gap-1.5 bg-gray-100 p-1 rounded-xl text-xs">
-              {["ALL", "OPEN", "UNDER_REVIEW", "RESOLVED", "REJECTED"].map((st) => (
-                <button
-                  key={st}
-                  onClick={() => setReportStatusFilter(st)}
-                  className={`px-2.5 py-1 rounded-lg font-semibold transition-colors ${
-                    reportStatusFilter === st
-                      ? "bg-white text-gray-900 shadow-xs"
-                      : "text-gray-500 hover:text-gray-700"
-                  }`}
-                >
-                  {st}
-                </button>
-              ))}
+      {/* Tab: Vehicle Approvals */}
+      {activeTab === "VEHICLES" && (
+        <div className="space-y-6">
+          {pendingVehicles.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-xs text-gray-400">
+              No vehicle listings pending approval.
             </div>
+          ) : (
+            pendingVehicles.map((v) => (
+              <div key={v.id} className="bg-white rounded-3xl border border-gray-200/80 p-6 shadow-sm space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-gray-100">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-50 text-blue-700">
+                        {v.vehicle_type}
+                      </span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-gray-100 text-gray-600">
+                        {v.year}
+                      </span>
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700">
+                        Status: {v.status || "PENDING"}
+                      </span>
+                    </div>
+                    <h3 className="text-lg font-bold text-gray-900">
+                      {v.brand} {v.model}
+                    </h3>
+                    <p className="text-xs text-gray-500">
+                      Location: {v.pickup_location} • Daily Rate: {formatCurrency(v.price_per_day)} • Owner ID: #{v.owner_id}
+                    </p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="border-rose-300 text-rose-700 hover:bg-rose-50"
+                      onClick={() => setSelectedVehicleForReject(v)}
+                    >
+                      <XCircle className="w-4 h-4 mr-1 text-rose-600" />
+                      Reject Listing
+                    </Button>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                      onClick={() => handleApproveVehicle(v.id)}
+                    >
+                      <CheckCircle2 className="w-4 h-4 mr-1" />
+                      Approve Listing
+                    </Button>
+                  </div>
+                </div>
+
+                {/* Multi-angle Photos Inspection */}
+                <div className="space-y-2">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block flex items-center gap-1.5">
+                    <Camera className="w-3.5 h-3.5 text-blue-600" /> Submitted Multi-Angle Photos ({v.images.length})
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                    {v.images.map((img, idx) => (
+                      <div key={idx} className="relative rounded-xl overflow-hidden aspect-[4/3] bg-gray-100 border border-gray-200">
+                        <img src={img.image_url} alt={`Vehicle view ${idx}`} className="w-full h-full object-cover" />
+                        <span className="absolute bottom-1.5 left-1.5 bg-black/70 text-white text-[9px] font-bold px-2 py-0.5 rounded">
+                          {img.angle || "VIEW"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Submitted Compliance Documents */}
+                <div className="space-y-2 pt-2 border-t border-gray-100">
+                  <span className="text-xs font-bold text-gray-700 uppercase tracking-wider block flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-purple-600" /> Compliance Documents ({v.documents?.length || 0})
+                  </span>
+                  {(!v.documents || v.documents.length === 0) ? (
+                    <p className="text-xs text-gray-400 italic">No legal documents attached to this listing yet.</p>
+                  ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      {v.documents.map((doc) => (
+                        <div key={doc.id} className="p-3.5 rounded-xl border border-gray-200 bg-gray-50/60 flex items-start justify-between gap-2">
+                          <div className="space-y-1">
+                            <span className="text-xs font-bold text-gray-900 block">{doc.document_type}</span>
+                            <span className="text-[11px] text-gray-500 font-mono block">
+                              {doc.document_number || "No Ref #"}
+                            </span>
+                            {doc.expiry_date && (
+                              <span className="text-[10px] text-gray-600 flex items-center gap-1">
+                                <Calendar className="w-3 h-3 text-gray-400" /> Exp: {formatDate(doc.expiry_date)}
+                              </span>
+                            )}
+                            <span className={`text-[10px] font-bold uppercase inline-block ${doc.status === "VERIFIED" ? "text-emerald-600" : doc.status === "REJECTED" ? "text-rose-600" : "text-amber-600"}`}>
+                              {doc.status}
+                            </span>
+                          </div>
+                          <a
+                            href={doc.document_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="p-1.5 rounded-lg bg-white border border-gray-200 text-blue-600 hover:bg-blue-50 transition-colors"
+                            title="Inspect Document"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Tab: Document Queue */}
+      {activeTab === "DOCUMENTS" && (
+        <div className="space-y-4">
+          {pendingDocuments.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-xs text-gray-400">
+              No compliance documents pending verification in the queue.
+            </div>
+          ) : (
+            pendingDocuments.map((doc) => (
+              <div key={doc.id} className="bg-white rounded-3xl border border-gray-200/80 p-5 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700">
+                      {doc.document_type}
+                    </span>
+                    <span className="text-xs font-bold px-2 py-0.5 rounded-lg bg-amber-50 text-amber-700">
+                      Status: {doc.status}
+                    </span>
+                    <span className="text-xs text-gray-400">Vehicle #{doc.vehicle_id}</span>
+                  </div>
+                  <div className="text-xs text-gray-700 font-medium pt-1">
+                    {doc.document_number && <span>Ref #: <strong className="font-mono text-gray-900">{doc.document_number}</strong> • </span>}
+                    {doc.expiry_date && <span>Expiry Date: <strong className="text-blue-600">{formatDate(doc.expiry_date)}</strong> • </span>}
+                    <span>Uploaded: {formatDate(doc.uploaded_at)}</span>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0">
+                  <a
+                    href={doc.document_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border border-gray-200 text-xs font-bold text-gray-700 hover:bg-gray-50"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5 text-blue-600" />
+                    Inspect File
+                  </a>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-rose-300 text-rose-700 hover:bg-rose-50"
+                    onClick={() => setSelectedDocForReject(doc)}
+                  >
+                    Reject
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                    onClick={() => handleVerifyDocument(doc.id)}
+                  >
+                    Verify
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Tab: Driver Verification Queue */}
+      {activeTab === "USERS" && (
+        <div className="space-y-4">
+          {pendingUsers.length === 0 ? (
+            <div className="text-center py-16 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-xs text-gray-400">
+              No user license verification requests pending.
+            </div>
+          ) : (
+            pendingUsers.map((u) => (
+              <div key={u.id} className="bg-white rounded-3xl border border-gray-200/80 p-5 shadow-sm flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={u.profile_picture || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&q=80"}
+                    alt={u.full_name}
+                    className="w-10 h-10 rounded-full object-cover"
+                  />
+                  <div>
+                    <h4 className="font-bold text-sm text-gray-900">{u.full_name}</h4>
+                    <p className="text-xs text-gray-500 font-mono">
+                      License: {u.driving_license_number || "Not provided"} • {u.email}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-rose-300 text-rose-700 hover:bg-rose-50"
+                    onClick={() => handleSuspendUser(u.id)}
+                  >
+                    <Ban className="w-3.5 h-3.5 mr-1" /> Suspend
+                  </Button>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    className="bg-blue-600 hover:bg-blue-700 text-white"
+                    onClick={() => handleVerifyUser(u.id)}
+                  >
+                    <CheckCircle2 className="w-4 h-4 mr-1" /> Verify Identity (+10 Pts)
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* Tab: Reports & Moderation */}
+      {activeTab === "REPORTS" && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-2">
+            {["ALL", "OPEN", "RESOLVED", "DISMISSED"].map((status) => (
+              <button
+                key={status}
+                onClick={() => setReportStatusFilter(status)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                  reportStatusFilter === status
+                    ? "bg-gray-900 text-white"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                }`}
+              >
+                {status}
+              </button>
+            ))}
           </div>
 
           {filteredReports.length === 0 ? (
@@ -303,96 +578,28 @@ export default function AdminPage() {
             </div>
           ) : (
             filteredReports.map((r) => (
-              <div key={r.id} className="bg-white rounded-3xl border border-gray-200/80 p-6 shadow-subtle space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
-                        r.status === "RESOLVED"
-                          ? "bg-emerald-100 text-emerald-800"
-                          : r.status === "UNDER_REVIEW"
-                          ? "bg-blue-100 text-blue-800"
-                          : r.status === "REJECTED" || r.status === "DISMISSED"
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-amber-100 text-amber-800"
-                      }`}
-                    >
+              <div key={r.id} className="bg-white rounded-3xl border border-gray-200/80 p-6 shadow-sm space-y-4">
+                <div className="flex items-start justify-between gap-4 pb-3 border-b border-gray-100">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700">
+                        {r.reason}
+                      </span>
+                      <span className="text-xs font-bold text-gray-400">Case #{r.id}</span>
+                      <span className="text-xs text-gray-400">• Filed {formatDate(r.created_at)}</span>
+                    </div>
+                    <p className="text-xs text-gray-800 font-medium mt-2">{r.details || r.description}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${r.status === "RESOLVED" ? "bg-emerald-50 text-emerald-700" : r.status === "DISMISSED" ? "bg-gray-100 text-gray-600" : "bg-amber-50 text-amber-700"}`}>
                       {r.status}
                     </span>
-                    <span className="text-xs font-bold text-gray-900">Ticket #{r.id} • {r.reason}</span>
-                  </div>
-                  <span className="text-[11px] text-gray-400">{formatDate(r.created_at)}</span>
-                </div>
-
-                <div className="p-3 bg-gray-50 rounded-2xl text-xs space-y-1">
-                  <span className="text-[10px] font-bold text-gray-400 uppercase">Complaint Description</span>
-                  <p className="text-gray-800 leading-relaxed font-normal">"{r.details || r.description}"</p>
-                </div>
-
-                {/* Associated Review Inspection */}
-                {r.review && (
-                  <div className="p-4 bg-amber-50/50 rounded-2xl border border-amber-200/70 text-xs space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <AlertTriangle className="w-4 h-4 text-amber-600" />
-                        <span className="font-bold text-amber-900">Reported Review #{r.review.id}</span>
-                        {r.review.is_hidden && (
-                          <span className="text-[10px] bg-rose-100 text-rose-700 font-bold px-1.5 py-0.2 rounded">
-                            HIDDEN BY MODERATOR
-                          </span>
-                        )}
-                      </div>
-                      <span className="font-bold text-amber-700">★ {r.review.rating}/5</span>
-                    </div>
-                    <p className="text-amber-950 italic">"{r.review.comment}"</p>
-                    <div className="flex items-center justify-between text-[11px] text-amber-800 pt-1">
-                      <span>Author ID: {r.review.reviewer_id}</span>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleToggleHideReview(r.review!.id, !!r.review!.is_hidden)}
-                        className="text-xs gap-1 border-amber-300 hover:bg-amber-100"
-                      >
-                        {r.review.is_hidden ? (
-                          <>
-                            <Eye className="w-3.5 h-3.5" /> Unhide Review
-                          </>
-                        ) : (
-                          <>
-                            <EyeOff className="w-3.5 h-3.5 text-rose-600" /> Hide / Remove Review
-                          </>
-                        )}
+                    {r.status === "PENDING" && (
+                      <Button variant="outline" size="sm" onClick={() => setSelectedReport(r)}>
+                        Resolve Case
                       </Button>
-                    </div>
-                  </div>
-                )}
-
-                <div className="flex items-center justify-between pt-2 text-xs flex-wrap gap-2">
-                  <div className="space-y-0.5 text-gray-500">
-                    <div>
-                      Reporter: <strong className="text-gray-900">{r.reporter?.full_name || `User #${r.reporter_id}`}</strong>
-                    </div>
-                    {r.reported_user && (
-                      <div>
-                        Reported User: <strong className="text-gray-900">{r.reported_user.full_name}</strong> (Honor: {r.reported_user.honor_score})
-                      </div>
                     )}
-                    {r.booking_id && (
-                      <div>
-                        Associated Trip: <strong className="text-blue-600">Booking #{r.booking_id}</strong>
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleOpenResolveModal(r)}
-                      className="text-xs"
-                    >
-                      Process & Moderate Ticket
-                    </Button>
                   </div>
                 </div>
 
@@ -408,9 +615,9 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab: Honor Score Adjustment Tool */}
+      {/* Tab: Honor Adjustment Engine */}
       {activeTab === "HONOR" && (
-        <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-subtle space-y-6">
+        <div className="bg-white rounded-3xl p-6 border border-gray-200/80 shadow-sm space-y-6">
           <div className="space-y-1">
             <h3 className="text-base font-bold text-gray-900">Honor Score Manual Adjustment Engine</h3>
             <p className="text-xs text-gray-500">
@@ -462,130 +669,110 @@ export default function AdminPage() {
         </div>
       )}
 
-      {/* Tab: Vehicle Approvals */}
-      {activeTab === "VEHICLES" && (
-        <div className="space-y-4">
-          {pendingVehicles.length === 0 ? (
-            <div className="text-center py-16 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-xs text-gray-400">
-              No vehicle listings pending approval.
-            </div>
-          ) : (
-            pendingVehicles.map((v) => (
-              <div key={v.id} className="bg-white rounded-3xl border border-gray-200/80 p-5 shadow-subtle flex items-center justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-sm text-gray-900">{v.brand} {v.model} ({v.year})</h4>
-                  <p className="text-xs text-gray-500">{v.pickup_location} • {formatCurrency(v.price_per_day)}/day</p>
-                </div>
-                <Button variant="primary" size="sm" onClick={() => handleApproveVehicle(v.id)}>
-                  Approve Listing
-                </Button>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Tab: Driver Verifications */}
-      {activeTab === "USERS" && (
-        <div className="space-y-4">
-          {pendingUsers.length === 0 ? (
-            <div className="text-center py-16 bg-gray-50/50 rounded-3xl border border-dashed border-gray-200 text-xs text-gray-400">
-              No pending driver verification requests.
-            </div>
-          ) : (
-            pendingUsers.map((u) => (
-              <div key={u.id} className="bg-white rounded-3xl border border-gray-200/80 p-5 shadow-subtle flex items-center justify-between gap-4">
-                <div>
-                  <h4 className="font-bold text-sm text-gray-900">{u.full_name}</h4>
-                  <p className="text-xs text-gray-500">{u.email} • License: {u.driving_license_number}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button variant="primary" size="sm" onClick={() => handleVerifyUser(u.id)}>
-                    Verify Driver (+10 Pts)
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => handleToggleSuspendUser(u.id)} className="text-rose-600">
-                    Suspend
-                  </Button>
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
-
-      {/* Moderate Report Modal */}
-      {selectedReport && (
+      {/* Modal: Reject Vehicle */}
+      {selectedVehicleForReject && (
         <Modal
-          isOpen={!!selectedReport}
-          onClose={() => setSelectedReport(null)}
-          title={`Moderate Dispute #${selectedReport.id}`}
+          isOpen={true}
+          onClose={() => setSelectedVehicleForReject(null)}
+          title={`Reject Listing: ${selectedVehicleForReject.brand} ${selectedVehicleForReject.model}`}
         >
-          <form onSubmit={handleResolveReportSubmit} className="space-y-4">
+          <form onSubmit={handleRejectVehicleSubmit} className="space-y-4 pt-2">
+            <p className="text-xs text-gray-500">
+              Provide actionable feedback to the vehicle host. The listing will be set to <strong>REJECTED</strong> and the owner will receive this feedback.
+            </p>
             <div>
               <label className="block text-xs font-semibold uppercase text-gray-700 mb-1">
-                Resolution Status
+                Rejection Reason *
               </label>
+              <textarea
+                rows={3}
+                value={vehicleRejectReason}
+                onChange={(e) => setVehicleRejectReason(e.target.value)}
+                placeholder="e.g. PUC certificate is expired / Please upload clearer interior photos showing the dashboard..."
+                className="w-full p-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-rose-600"
+                required
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setSelectedVehicleForReject(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" isLoading={rejectingVehicle}>
+                Confirm Rejection
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal: Reject Document */}
+      {selectedDocForReject && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedDocForReject(null)}
+          title={`Reject ${selectedDocForReject.document_type} Document`}
+        >
+          <form onSubmit={handleRejectDocSubmit} className="space-y-4 pt-2">
+            <p className="text-xs text-gray-500">
+              Please enter the reason for rejecting this {selectedDocForReject.document_type}.
+            </p>
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-700 mb-1">
+                Rejection Reason *
+              </label>
+              <textarea
+                rows={3}
+                value={docRejectReason}
+                onChange={(e) => setDocRejectReason(e.target.value)}
+                placeholder="e.g. Document image is blurry / Certificate expired / Registration number does not match..."
+                className="w-full p-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-rose-600"
+                required
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => setSelectedDocForReject(null)}>
+                Cancel
+              </Button>
+              <Button type="submit" size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" isLoading={rejectingDoc}>
+                Reject Document
+              </Button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {/* Modal: Resolve Report */}
+      {selectedReport && (
+        <Modal
+          isOpen={true}
+          onClose={() => setSelectedReport(null)}
+          title={`Resolve Report Case #${selectedReport.id}`}
+        >
+          <form onSubmit={handleResolveReportSubmit} className="space-y-4 pt-2">
+            <div>
+              <label className="block text-xs font-semibold uppercase text-gray-700 mb-1">Resolution Status</label>
               <select
                 value={resolveStatus}
                 onChange={(e) => setResolveStatus(e.target.value)}
-                className="w-full px-3.5 py-2 text-xs rounded-xl border border-gray-200 bg-white focus:outline-none focus:border-blue-600"
+                className="w-full p-2.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600"
               >
-                <option value="RESOLVED">RESOLVED (Action Taken)</option>
-                <option value="UNDER_REVIEW">UNDER_REVIEW (Investigation in Progress)</option>
-                <option value="REJECTED">REJECTED (No Violation Found)</option>
+                <option value="RESOLVED">RESOLVED</option>
+                <option value="DISMISSED">DISMISSED</option>
               </select>
             </div>
 
             <div>
-              <label className="block text-xs font-semibold uppercase text-gray-700 mb-1">
-                Admin Notes & Findings
-              </label>
+              <label className="block text-xs font-semibold uppercase text-gray-700 mb-1">Admin Notes</label>
               <textarea
                 rows={3}
                 value={adminNote}
                 onChange={(e) => setAdminNote(e.target.value)}
-                placeholder="Explain the outcome, rationale, and resolution details..."
-                className="w-full p-2.5 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600"
-                required
+                placeholder="Enter internal resolution notes..."
+                className="w-full p-3 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600"
               />
             </div>
 
-            {selectedReport.reported_user_id && (
-              <div>
-                <label className="block text-xs font-semibold uppercase text-gray-700 mb-1">
-                  Honor Score Penalty on Reported User (Optional)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  max="50"
-                  value={penaltyPoints}
-                  onChange={(e) => setPenaltyPoints(parseInt(e.target.value) || 0)}
-                  placeholder="e.g. 10 or 15 points to deduct"
-                  className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 focus:outline-none focus:border-blue-600"
-                />
-                <span className="text-[10px] text-gray-400 mt-1 block">
-                  Deducts specified points from user #{selectedReport.reported_user_id} and generates audit log.
-                </span>
-              </div>
-            )}
-
-            {selectedReport.review_id && (
-              <div className="flex items-center gap-2 p-3 bg-rose-50 border border-rose-200 rounded-xl">
-                <input
-                  type="checkbox"
-                  id="hideReviewCheck"
-                  checked={hideAbusiveReview}
-                  onChange={(e) => setHideAbusiveReview(e.target.checked)}
-                  className="rounded text-blue-600 focus:ring-blue-500"
-                />
-                <label htmlFor="hideReviewCheck" className="text-xs font-bold text-rose-900 cursor-pointer">
-                  Hide/Remove abusive review #{selectedReport.review_id} from public display
-                </label>
-              </div>
-            )}
-
-            <div className="flex justify-end gap-2 pt-2">
+            <div className="flex items-center justify-end gap-2 pt-2">
               <Button type="button" variant="outline" size="sm" onClick={() => setSelectedReport(null)}>
                 Cancel
               </Button>
