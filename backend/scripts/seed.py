@@ -11,12 +11,14 @@ from app.models.review import Review
 from app.models.notification import Notification
 from app.models.report import Report
 from app.models.honor_score_history import HonorScoreHistory
+from app.models.system_config import SystemConfig
 
 async def seed_data():
     print("Initializing RideSync Database Seed...")
     
-    # 0. Sync tables
+    # 0. Sync tables - drop and recreate to guarantee complete, updated schema
     async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.drop_all)
         await conn.run_sync(Base.metadata.create_all)
 
     async with AsyncSessionLocal() as session:
@@ -25,7 +27,7 @@ async def seed_data():
         for table in [
             "messages", "conversations", "reports", "reviews", "bookings",
             "vehicle_documents", "vehicle_images", "vehicles", "honor_score_history",
-            "notifications", "transactions", "users"
+            "notifications", "transactions", "system_configs", "users"
         ]:
             try:
                 await session.execute(text(f"DELETE FROM {table}"))
@@ -582,10 +584,58 @@ async def seed_data():
             },
         ]
 
+        # Seed System Configuration for tracking & dynamic accuracy gradient
+        import json
+        tracking_cfg = {
+            "default_masking_buffer_km": 1.5,
+            "gradient_near_threshold_km": 2.0,
+            "gradient_near_accuracy_km": 0.5,
+            "gradient_far_threshold_km": 5.0,
+            "gradient_far_accuracy_km": 0.08,
+            "gradient_sensitivity": 1.0,
+        }
+        sys_cfg = SystemConfig(
+            key="tracking_config",
+            value=json.dumps(tracking_cfg),
+            description="Global GPS Privacy and Geofencing Dynamic Gradient Parameters",
+            updated_at=now,
+        )
+        session.add(sys_cfg)
+        await session.commit()
+
         created_vehicles = []
-        for vd in vehicles_data:
+        for idx, vd in enumerate(vehicles_data):
             imgs = vd.pop("images")
             docs = vd.pop("documents")
+
+            # Assign geofence and initial telemetry parameters
+            lat = vd.get("latitude", 37.7749)
+            lng = vd.get("longitude", -122.4194)
+            pickup = vd.get("pickup_location", "San Francisco, CA")
+            
+            # Vehicles at index 2 (BMW M4) and 8 (Ioniq 5) are marked FLEXIBLE; others CIRCULAR
+            if idx in (2, 8):
+                vd["geofence_type"] = "FLEXIBLE"
+                vd["geofence_radius_km"] = None
+                vd["geofence_center_lat"] = None
+                vd["geofence_center_lng"] = None
+                vd["geofence_center_name"] = "Flexible (Coordinated upon booking)"
+            else:
+                vd["geofence_type"] = "CIRCULAR"
+                vd["geofence_radius_km"] = 25.0 if idx % 2 == 0 else 35.0
+                vd["geofence_center_lat"] = lat
+                vd["geofence_center_lng"] = lng
+                vd["geofence_center_name"] = f"Metropolitan Operating Area ({pickup.split(',')[0].strip()})"
+
+            # Realistic current telemetry (near pickup / center)
+            vd["current_latitude"] = lat + (0.003 if idx % 2 == 0 else -0.004)
+            vd["current_longitude"] = lng + (0.002 if idx % 2 == 0 else -0.003)
+            vd["speed_kmh"] = 42.0 if idx == 1 else 0.0
+            vd["battery_or_fuel_level"] = 85.0 - (idx * 2 % 35)
+            vd["last_location_update"] = now
+            vd["is_geofence_breached"] = False
+            vd["breach_distance_km"] = 0.0
+
             v = Vehicle(**vd)
             session.add(v)
             await session.commit()

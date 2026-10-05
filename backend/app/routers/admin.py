@@ -14,6 +14,7 @@ from app.schemas.vehicle import (
 from app.schemas.report import ReportResponse, ReportUpdate
 from app.schemas.honor import HonorScoreAdjustment, HonorScoreHistoryResponse
 from app.schemas.review import ReviewResponse, ReviewModerationRequest
+from app.schemas.tracking import TrackingConfigResponse, TrackingConfigUpdate
 from app.services.admin_service import AdminService
 from app.services.user_service import UserService
 from app.services.vehicle_service import VehicleService
@@ -173,4 +174,31 @@ async def update_report(
 ):
     report_service = ReportService(db)
     return await report_service.update_report(report_id, update_in)
+
+@router.get("/tracking-config", response_model=TrackingConfigResponse)
+async def get_tracking_config(
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Get global location masking buffer and breach gradient sensitivity settings.
+    """
+    from app.services.vehicle_tracking_service import VehicleTrackingService
+    service = VehicleTrackingService(db)
+    cfg = await service.get_tracking_config()
+    return TrackingConfigResponse(**cfg)
+
+@router.put("/tracking-config", response_model=TrackingConfigResponse)
+async def update_tracking_config(
+    update_in: TrackingConfigUpdate,
+    admin: User = Depends(get_current_admin),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Update global location masking buffer and breach gradient sensitivity settings.
+    """
+    from app.services.vehicle_tracking_service import VehicleTrackingService
+    service = VehicleTrackingService(db)
+    cfg = await service.update_tracking_config(update_in.model_dump(exclude_unset=True))
+    return TrackingConfigResponse(**cfg)
 

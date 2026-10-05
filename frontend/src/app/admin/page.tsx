@@ -19,10 +19,14 @@ import {
   ExternalLink,
   Camera,
   Calendar,
+  Compass,
+  Radio,
+  Sliders,
+  Navigation,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { apiService } from "@/lib/api";
-import { AdminAnalytics, Vehicle, User, ReportItem, VehicleDocument } from "@/types";
+import { AdminAnalytics, Vehicle, User, ReportItem, VehicleDocument, TrackingConfig } from "@/types";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { HonorScoreBadge } from "@/components/ui/HonorScoreBadge";
@@ -40,7 +44,12 @@ export default function AdminPage() {
   const [pendingUsers, setPendingUsers] = useState<User[]>([]);
   const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"VEHICLES" | "DOCUMENTS" | "USERS" | "REPORTS" | "HONOR">("VEHICLES");
+  const [activeTab, setActiveTab] = useState<"VEHICLES" | "DOCUMENTS" | "USERS" | "REPORTS" | "HONOR" | "TRACKING_CONFIG">("VEHICLES");
+
+  // Tracking Configuration state
+  const [trackingConfig, setTrackingConfig] = useState<TrackingConfig | null>(null);
+  const [savingTrackingConfig, setSavingTrackingConfig] = useState<boolean>(false);
+  const [configFeedback, setConfigFeedback] = useState<string>("");
 
   // Report filter and resolution state
   const [reportStatusFilter, setReportStatusFilter] = useState<string>("ALL");
@@ -75,16 +84,35 @@ export default function AdminPage() {
       apiService.getPendingDocuments().catch(() => []),
       apiService.getPendingVerifications(),
       apiService.getAdminReports(),
+      apiService.getAdminTrackingConfig().catch(() => null),
     ])
-      .then(([analyticsData, vehiclesData, docsData, usersData, reportsData]) => {
+      .then(([analyticsData, vehiclesData, docsData, usersData, reportsData, trackingData]) => {
         setAnalytics(analyticsData);
         setPendingVehicles(vehiclesData);
         setPendingDocuments(docsData);
         setPendingUsers(usersData);
         setReports(reportsData);
+        if (trackingData) {
+          setTrackingConfig(trackingData);
+        }
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false));
+  };
+
+  const handleSaveTrackingConfig = async () => {
+    if (!trackingConfig) return;
+    setSavingTrackingConfig(true);
+    setConfigFeedback("");
+    try {
+      const updated = await apiService.updateAdminTrackingConfig(trackingConfig);
+      setTrackingConfig(updated);
+      setConfigFeedback("Tracking privacy baseline & gradient sensitivity saved successfully!");
+    } catch (err: any) {
+      setConfigFeedback(err.response?.data?.detail || "Failed to update tracking config.");
+    } finally {
+      setSavingTrackingConfig(false);
+    }
   };
 
   useEffect(() => {
@@ -327,6 +355,18 @@ export default function AdminPage() {
           }`}
         >
           Honor Adjustment Engine
+        </button>
+
+        <button
+          onClick={() => setActiveTab("TRACKING_CONFIG")}
+          className={`px-4 py-2 rounded-xl text-xs font-bold transition-colors whitespace-nowrap flex items-center gap-1.5 ${
+            activeTab === "TRACKING_CONFIG"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          <Compass className="w-3.5 h-3.5" />
+          <span>Geofencing & Accuracy Gradient</span>
         </button>
       </div>
 
@@ -666,6 +706,297 @@ export default function AdminPage() {
               Apply Honor Score Adjustment
             </Button>
           </form>
+        </div>
+      )}
+
+      {/* Tab: Geofencing & Progressive Accuracy Gradient Config */}
+      {activeTab === "TRACKING_CONFIG" && (
+        <div className="space-y-6">
+          <div className="bg-white rounded-3xl p-6 sm:p-8 border border-gray-200/80 shadow-sm space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-gray-100 pb-5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+                    <Compass className="w-4 h-4" />
+                  </div>
+                  <h3 className="text-lg font-bold text-gray-900">
+                    GPS Privacy & Geofence Gradient Controls
+                  </h3>
+                </div>
+                <p className="text-xs text-gray-500 max-w-2xl">
+                  Configure the platform's Wire Privacy obfuscation baseline and tune the rate at which tracking precision escalates when an out-of-bounds breach occurs.
+                </p>
+              </div>
+
+              {configFeedback && (
+                <div className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-semibold flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                  <span>{configFeedback}</span>
+                </div>
+              )}
+            </div>
+
+            {trackingConfig ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleSaveTrackingConfig();
+                }}
+                className="space-y-8"
+              >
+                {/* 1. Global Baseline */}
+                <div className="p-5 rounded-2xl bg-blue-50/40 border border-blue-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-blue-900">
+                        1. Global Location Masking Baseline (In-Bounds Privacy)
+                      </h4>
+                      <p className="text-xs text-gray-600">
+                        The approximate uncertainty circle radius returned to clients while a vehicle operates normally within its designated boundary.
+                      </p>
+                    </div>
+                    <span className="text-sm font-extrabold text-blue-600 bg-white px-3 py-1 rounded-xl border border-blue-200 shadow-xs">
+                      {trackingConfig.default_masking_buffer_km} km (±{Math.round(trackingConfig.default_masking_buffer_km * 1000)}m)
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    <input
+                      type="range"
+                      min="0.8"
+                      max="3.0"
+                      step="0.1"
+                      value={trackingConfig.default_masking_buffer_km}
+                      onChange={(e) =>
+                        setTrackingConfig({
+                          ...trackingConfig,
+                          default_masking_buffer_km: parseFloat(e.target.value),
+                        })
+                      }
+                      className="w-full accent-blue-600 cursor-pointer"
+                    />
+                    <div className="flex justify-between text-[11px] text-gray-400 font-medium">
+                      <span>0.8 km (Coarse)</span>
+                      <span>1.5 km (Default Standard)</span>
+                      <span>3.0 km (Maximum Privacy)</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Gradient Sensitivity Controls */}
+                <div className="p-5 rounded-2xl bg-amber-50/40 border border-amber-100 space-y-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-bold uppercase tracking-wider text-amber-900">
+                        2. Gradient Tightening Sensitivity Rate
+                      </h4>
+                      <p className="text-xs text-gray-600">
+                        Multiplier controlling how rapidly precision tightens as the vehicle travels further past the boundary line.
+                      </p>
+                    </div>
+                    <span className="text-sm font-extrabold text-amber-600 bg-white px-3 py-1 rounded-xl border border-amber-200 shadow-xs">
+                      {trackingConfig.gradient_sensitivity}x Rate
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {[0.5, 1.0, 1.5, 2.0].map((rate) => (
+                      <button
+                        key={rate}
+                        type="button"
+                        onClick={() =>
+                          setTrackingConfig({
+                            ...trackingConfig,
+                            gradient_sensitivity: rate,
+                          })
+                        }
+                        className={`py-2 px-3 rounded-xl text-xs font-bold transition-all ${
+                          trackingConfig.gradient_sensitivity === rate
+                            ? "bg-amber-600 text-white shadow-sm"
+                            : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                        }`}
+                      >
+                        {rate}x {rate === 1.0 ? "(Standard)" : rate > 1.0 ? "(Aggressive)" : "(Gentle)"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. Breach Step Thresholds & Resolutions */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* Near Breach Tier */}
+                  <div className="p-5 rounded-2xl bg-orange-50/30 border border-orange-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-orange-950 flex items-center gap-1.5">
+                        <AlertTriangle className="w-4 h-4 text-orange-600" />
+                        Near Breach Tier
+                      </span>
+                      <span className="text-[10px] font-bold text-orange-700 bg-orange-100 px-2 py-0.5 rounded-full">
+                        Intermediate
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                          Threshold Distance (km outside boundary)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.5"
+                          min="0.5"
+                          max="5.0"
+                          value={trackingConfig.gradient_near_threshold_km}
+                          onChange={(e) =>
+                            setTrackingConfig({
+                              ...trackingConfig,
+                              gradient_near_threshold_km: parseFloat(e.target.value) || 2.0,
+                            })
+                          }
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white outline-none focus:border-orange-500 font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                          Accuracy Buffer (km resolution)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.1"
+                          max="1.0"
+                          value={trackingConfig.gradient_near_accuracy_km}
+                          onChange={(e) =>
+                            setTrackingConfig({
+                              ...trackingConfig,
+                              gradient_near_accuracy_km: parseFloat(e.target.value) || 0.5,
+                            })
+                          }
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white outline-none focus:border-orange-500 font-bold"
+                        />
+                        <span className="text-[10px] text-gray-400 block mt-0.5">
+                          Equivalent: ±{Math.round(trackingConfig.gradient_near_accuracy_km * 1000)} meters
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Distant Breach Tier */}
+                  <div className="p-5 rounded-2xl bg-rose-50/30 border border-rose-100 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-rose-950 flex items-center gap-1.5">
+                        <Navigation className="w-4 h-4 text-rose-600" />
+                        Distant Breach Tier
+                      </span>
+                      <span className="text-[10px] font-bold text-rose-700 bg-rose-100 px-2 py-0.5 rounded-full">
+                        Fleet Recovery (High Precision)
+                      </span>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                          Escalation Threshold (km outside boundary)
+                        </label>
+                        <input
+                          type="number"
+                          step="1.0"
+                          min="3.0"
+                          max="20.0"
+                          value={trackingConfig.gradient_far_threshold_km}
+                          onChange={(e) =>
+                            setTrackingConfig({
+                              ...trackingConfig,
+                              gradient_far_threshold_km: parseFloat(e.target.value) || 5.0,
+                            })
+                          }
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white outline-none focus:border-rose-500 font-bold"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-[11px] font-semibold text-gray-700 block mb-1">
+                          Recovery Precision Buffer (km)
+                        </label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0.02"
+                          max="0.2"
+                          value={trackingConfig.gradient_far_accuracy_km}
+                          onChange={(e) =>
+                            setTrackingConfig({
+                              ...trackingConfig,
+                              gradient_far_accuracy_km: parseFloat(e.target.value) || 0.08,
+                            })
+                          }
+                          className="w-full px-3 py-2 text-xs rounded-xl border border-gray-200 bg-white outline-none focus:border-rose-500 font-bold"
+                        />
+                        <span className="text-[10px] text-gray-400 block mt-0.5">
+                          Equivalent: ±{Math.round(trackingConfig.gradient_far_accuracy_km * 1000)} meters (or Direct Pin)
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 4. Live Dynamic Gradient Simulation Preview */}
+                <div className="p-5 rounded-2xl bg-gray-50 border border-gray-200 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-gray-700">
+                    Live Gradient Resolution Simulation
+                  </h4>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                    <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-1">
+                      <span className="text-emerald-600 font-bold block">Vehicle In-Bounds (0 km)</span>
+                      <div className="text-gray-800 font-extrabold text-sm">
+                        ±{Math.round(trackingConfig.default_masking_buffer_km * 1000)}m
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Privacy preserved. True coordinates masked via backend fuzzer.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-1">
+                      <span className="text-amber-600 font-bold block">Near Breach (+1.5 km out)</span>
+                      <div className="text-gray-800 font-extrabold text-sm">
+                        ±{Math.round(trackingConfig.gradient_near_accuracy_km * 1000)}m
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        Resolution tightens. Owner receives Out-of-Bounds alert.
+                      </p>
+                    </div>
+
+                    <div className="p-3 bg-white rounded-xl border border-gray-200 space-y-1">
+                      <span className="text-rose-600 font-bold block">Distant Breach (+6.0 km out)</span>
+                      <div className="text-gray-800 font-extrabold text-sm">
+                        ±{Math.round(trackingConfig.gradient_far_accuracy_km * 1000)}m
+                      </div>
+                      <p className="text-[11px] text-gray-500">
+                        High-precision pin enabled for emergency recovery & fleet safety.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Submit Action */}
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    size="md"
+                    isLoading={savingTrackingConfig}
+                  >
+                    Save & Deploy Global Tracking Parameters
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="text-center py-12 text-xs text-gray-400">
+                Loading tracking configuration...
+              </div>
+            )}
+          </div>
         </div>
       )}
 

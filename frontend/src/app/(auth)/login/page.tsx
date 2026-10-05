@@ -32,13 +32,14 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoAccount = async (demoEmail: string) => {
+  const handleDemoAccount = async (demoEmail: string, demoPassword?: string) => {
+    const pwd = demoPassword || (demoEmail === "admin@ridesync.com" ? "admin123" : "password123");
     setEmail(demoEmail);
-    setPassword("password123");
+    setPassword(pwd);
     setLoading(true);
     setError("");
     try {
-      await login(demoEmail, "password123");
+      await login(demoEmail, pwd);
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to log in as demo account.");

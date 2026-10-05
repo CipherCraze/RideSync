@@ -16,6 +16,10 @@ import {
   AdminAnalytics,
   Transaction,
   VehicleDocument,
+  VehicleTrackingInfo,
+  TrackingConfig,
+  UserPublicCard,
+  UserPublicDetail,
 } from "@/types";
 
 
@@ -307,6 +311,63 @@ export const apiService = {
   },
   updateAdminReport: async (id: number, data: { status: string; admin_notes?: string; honor_score_penalty?: number; hide_review?: boolean }) => {
     const res = await api.put<ReportItem>(`/admin/reports/${id}`, data);
+    return res.data;
+  },
+
+  // Uploads
+  uploadAvatar: async (file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const res = await api.post<{ url: string; filename: string; content_type: string; size: number }>(
+      "/uploads/avatar",
+      formData,
+      {
+        headers: { "Content-Type": "multipart/form-data" },
+      }
+    );
+    return res.data;
+  },
+
+  // Fleet Tracking & Geofencing
+  getMyFleetTracking: async () => {
+    const res = await api.get<VehicleTrackingInfo[]>("/tracking/fleet");
+    return res.data;
+  },
+  getVehicleTracking: async (vehicleId: number) => {
+    const res = await api.get<VehicleTrackingInfo>(`/tracking/vehicles/${vehicleId}`);
+    return res.data;
+  },
+  simulateVehicleMovement: async (
+    vehicleId: number,
+    targetState: "IN_BOUNDS" | "NEAR_BREACH" | "DISTANT_BREACH" | "RESET",
+    customDistanceKm?: number
+  ) => {
+    const res = await api.post<VehicleTrackingInfo>(`/tracking/vehicles/${vehicleId}/simulate`, {
+      target_state: targetState,
+      custom_distance_km: customDistanceKm,
+    });
+    return res.data;
+  },
+
+  // User Discovery & Public Profiles
+  discoverUsers: async (query?: string, role?: string) => {
+    const res = await api.get<UserPublicCard[]>("/users/discover", {
+      params: { query: query || undefined, role: role || undefined },
+    });
+    return res.data;
+  },
+  getPublicUserProfile: async (userId: number) => {
+    const res = await api.get<UserPublicDetail>(`/users/${userId}/public`);
+    return res.data;
+  },
+
+  // Admin Tracking Config
+  getAdminTrackingConfig: async () => {
+    const res = await api.get<TrackingConfig>("/admin/tracking-config");
+    return res.data;
+  },
+  updateAdminTrackingConfig: async (data: Partial<TrackingConfig>) => {
+    const res = await api.put<TrackingConfig>("/admin/tracking-config", data);
     return res.data;
   },
 };

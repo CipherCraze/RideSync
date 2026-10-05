@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Camera,
   Trash2,
+  Compass,
+  MapPin,
 } from "lucide-react";
 import Link from "next/link";
 import { Input } from "@/components/ui/Input";
@@ -44,6 +46,11 @@ export default function NewVehiclePage() {
   const [pricePerDay, setPricePerDay] = useState(75);
   const [description, setDescription] = useState("");
   const [pickupLocation, setPickupLocation] = useState("");
+
+  // Geofence Configuration
+  const [geofenceType, setGeofenceType] = useState<"CIRCULAR" | "FLEXIBLE">("CIRCULAR");
+  const [geofenceRadiusKm, setGeofenceRadiusKm] = useState<number>(25);
+  const [geofenceCenterName, setGeofenceCenterName] = useState<string>("Metro / City Center");
 
   // Multi-Angle Photos
   const [photoSlots, setPhotoSlots] = useState<AngleSlot[]>([
@@ -174,6 +181,9 @@ export default function NewVehiclePage() {
         price_per_day: Number(pricePerDay),
         description: description || `${year} ${brand} ${model} available for rent on RideSync.`,
         pickup_location: pickupLocation,
+        geofence_type: geofenceType,
+        geofence_radius_km: geofenceType === "CIRCULAR" ? Number(geofenceRadiusKm) : null,
+        geofence_center_name: geofenceType === "CIRCULAR" ? geofenceCenterName : "Flexible (Coordinated upon booking)",
         status: targetStatus,
         images: imagesPayload,
       });
@@ -330,11 +340,121 @@ export default function NewVehiclePage() {
           </div>
         </div>
 
-        {/* Section 2: Multi-Angle Photos */}
+        {/* Section 2: Operational Geofence Boundary */}
         <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
           <div className="flex items-center justify-between">
             <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
               <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">2</span>
+              Operational Geofence & Boundary Policy
+            </h2>
+            <span className="text-[11px] text-blue-600 font-semibold flex items-center gap-1">
+              <Compass className="w-3.5 h-3.5" />
+              Dynamic Privacy & Safety Gradient
+            </span>
+          </div>
+
+          <p className="text-xs text-gray-500">
+            Define where your vehicle is permitted to travel during rentals. While inside safe bounds, renter GPS coordinates remain obfuscated to preserve privacy. If the vehicle crosses outside, high-precision alerts trigger automatically.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Circular Option */}
+            <div
+              onClick={() => setGeofenceType("CIRCULAR")}
+              className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                geofenceType === "CIRCULAR"
+                  ? "border-blue-600 bg-blue-50/30"
+                  : "border-gray-200 bg-gray-50/40 hover:border-gray-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-900 flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-blue-600" />
+                  Circular Safe Zone (Standard)
+                </span>
+                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  geofenceType === "CIRCULAR" ? "border-blue-600" : "border-gray-300"
+                }`}>
+                  {geofenceType === "CIRCULAR" && <span className="w-2 h-2 rounded-full bg-blue-600" />}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 mb-4 leading-relaxed">
+                Automated perimeter with out-of-bounds alerts. The radius is displayed to prospective renters upfront on your vehicle listing.
+              </p>
+
+              {geofenceType === "CIRCULAR" && (
+                <div className="space-y-3 pt-2 border-t border-blue-100">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-semibold text-gray-700">Permitted Operational Radius</label>
+                    <div className="flex items-center gap-2">
+                      {[15, 25, 35, 50, 75].map((r) => (
+                        <button
+                          key={r}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setGeofenceRadiusKm(r);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-all ${
+                            geofenceRadiusKm === r
+                              ? "bg-blue-600 text-white shadow-sm"
+                              : "bg-white border border-gray-200 text-gray-700 hover:bg-gray-50"
+                          }`}
+                        >
+                          {r} km
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <Input
+                    label="Center Zone Label"
+                    placeholder="e.g. San Francisco Bay Area or City Center"
+                    value={geofenceCenterName}
+                    onChange={(e) => setGeofenceCenterName(e.target.value)}
+                  />
+                  <p className="text-[11px] text-blue-700 font-medium">
+                    Preview: <strong>Permitted Operating Area: {geofenceRadiusKm} km radius from {geofenceCenterName || "City Center"}</strong>
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Flexible Option */}
+            <div
+              onClick={() => setGeofenceType("FLEXIBLE")}
+              className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                geofenceType === "FLEXIBLE"
+                  ? "border-blue-600 bg-blue-50/30"
+                  : "border-gray-200 bg-gray-50/40 hover:border-gray-300"
+              }`}
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-xs font-bold text-gray-900 flex items-center gap-2">
+                  <Compass className="w-4 h-4 text-emerald-600" />
+                  Flexible Region Policy
+                </span>
+                <span className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${
+                  geofenceType === "FLEXIBLE" ? "border-blue-600" : "border-gray-300"
+                }`}>
+                  {geofenceType === "FLEXIBLE" && <span className="w-2 h-2 rounded-full bg-blue-600" />}
+                </span>
+              </div>
+              <p className="text-[11px] text-gray-500 leading-relaxed">
+                Choose not to lock a predefined boundary prior to booking discussions. Ideal for road-trips, state-wide rentals, or inter-city travel.
+              </p>
+              <div className="mt-4 p-3 bg-white/80 rounded-xl border border-gray-200/80 text-[11px] text-gray-600">
+                Display Notice on Listing: <strong>Geofence: Flexible (Coordinated upon booking)</strong>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Section 3: Multi-Angle Photos */}
+        <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-gray-900 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">3</span>
               Multi-Angle Vehicle Photography
             </h2>
             <span className="text-[11px] text-gray-400 font-medium">JPEG, PNG, WEBP (Max 5MB each)</span>

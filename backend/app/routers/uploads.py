@@ -107,3 +107,48 @@ async def upload_document(
         content_type=file.content_type,
         size=actual_size,
     )
+
+@router.post("/avatar", response_model=DocumentUploadResponse)
+async def upload_avatar(
+    file: UploadFile = File(...),
+):
+    """
+    Public avatar upload endpoint for new account registration.
+    Validates image format (JPEG, PNG, WEBP) and size (<= 5MB).
+    """
+    if not file.content_type or file.content_type not in {"image/jpeg", "image/png", "image/webp"}:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid image format. Allowed formats: JPEG, PNG, WEBP."
+        )
+
+    if file.size and file.size > MAX_IMAGE_SIZE:
+        raise HTTPException(
+            status_code=400,
+            detail="Avatar image exceeds maximum allowed size of 5MB."
+        )
+
+    file_extension = os.path.splitext(file.filename or "")[1]
+    if not file_extension:
+        file_extension = ".jpg"
+
+    new_filename = f"avatar_{uuid.uuid4().hex}{file_extension}"
+    file_path = os.path.join(UPLOAD_DIR, new_filename)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+
+    actual_size = os.path.getsize(file_path)
+    if actual_size > MAX_IMAGE_SIZE:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+        raise HTTPException(status_code=400, detail="Avatar image exceeds maximum allowed size of 5MB.")
+
+    file_url = f"http://localhost:8000/uploads/{new_filename}"
+
+    return DocumentUploadResponse(
+        url=file_url,
+        filename=file.filename or new_filename,
+        content_type=file.content_type,
+        size=actual_size,
+    )

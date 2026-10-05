@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import List, Optional
 from pydantic import BaseModel, EmailStr, ConfigDict
 
 class UserBase(BaseModel):
@@ -36,3 +37,36 @@ class UserProfileResponse(UserResponse):
     bookings_count: int = 0
     reviews_count: int = 0
     honor_category: str = "Trusted"
+
+class UserListingSummary(BaseModel):
+    id: int
+    brand: str
+    model: str
+    year: int
+    vehicle_type: str
+    price_per_day: float
+    pickup_location: str
+    rating_avg: float
+    primary_image_url: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UserPublicCard(BaseModel):
+    id: int
+    full_name: str
+    email: str
+    phone: Optional[str] = None
+    profile_picture: Optional[str] = None
+    bio: Optional[str] = None
+    honor_score: int
+    honor_category: str
+    is_verified: bool
+    created_at: datetime
+    active_listings_count: int = 0
+    active_listings: List[UserListingSummary] = []
+
+    model_config = ConfigDict(from_attributes=True)
+
+class UserPublicDetail(UserPublicCard):
+    reviews_count: int = 0
+    rating_avg: float = 5.0

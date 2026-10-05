@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { AddReviewModal } from "@/components/reviews/AddReviewModal";
 import { formatCurrency, formatDate } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
-import { AlertTriangle, Receipt } from "lucide-react";
+import { AlertTriangle, Receipt, User, ExternalLink } from "lucide-react";
 
 export default function MyRentalsPage() {
   const { user } = useAuth();
@@ -171,7 +171,14 @@ export default function MyRentalsPage() {
 
                   <div className="pt-1 flex items-center gap-3 text-xs">
                     <span className="text-gray-500">
-                      Host: <strong className="text-gray-800">{b.owner?.full_name}</strong>
+                      Host:{" "}
+                      <Link
+                        href={`/profile/${b.owner_id}`}
+                        className="font-bold text-gray-800 hover:text-blue-600 hover:underline inline-flex items-center gap-1"
+                      >
+                        <span>{b.owner?.full_name}</span>
+                        <ExternalLink className="w-3 h-3 text-gray-400" />
+                      </Link>
                     </span>
                     {b.owner && <HonorScoreBadge score={b.owner.honor_score} showIcon={false} />}
                   </div>
@@ -231,14 +238,27 @@ export default function MyRentalsPage() {
                   )}
 
                   {(b.status === "COMPLETED" || b.status === "RETURNED") && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setSelectedReviewBooking(b)}
-                      className="gap-1 border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
-                    >
-                      <Star className="w-3.5 h-3.5 fill-blue-600" /> Write Review (+5 Honor)
-                    </Button>
+                    <>
+                      <Link href={`/profile/${b.owner_id}`}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="gap-1.5 border-gray-200 text-gray-700 hover:bg-gray-50 text-xs font-semibold"
+                        >
+                          <User className="w-3.5 h-3.5 text-blue-600" />
+                          <span>View Owner Profile</span>
+                        </Button>
+                      </Link>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSelectedReviewBooking(b)}
+                        className="gap-1 border-blue-200 text-blue-700 bg-blue-50/50 hover:bg-blue-50"
+                      >
+                        <Star className="w-3.5 h-3.5 fill-blue-600" /> Write Review (+5 Honor)
+                      </Button>
+                    </>
                   )}
                 </div>
               </div>

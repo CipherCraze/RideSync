@@ -22,6 +22,22 @@ class Vehicle(Base):
     latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
     
+    # Geofence & Operational Boundary Configuration
+    geofence_type: Mapped[str] = mapped_column(String(50), default="CIRCULAR", nullable=False)  # CIRCULAR, FLEXIBLE
+    geofence_center_lat: Mapped[float | None] = mapped_column(Float, nullable=True)
+    geofence_center_lng: Mapped[float | None] = mapped_column(Float, nullable=True)
+    geofence_radius_km: Mapped[float | None] = mapped_column(Float, default=25.0, nullable=True)
+    geofence_center_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+
+    # Real-Time Fleet Telemetry (actual hardware/simulated readings)
+    current_latitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    current_longitude: Mapped[float | None] = mapped_column(Float, nullable=True)
+    speed_kmh: Mapped[float | None] = mapped_column(Float, default=0.0, nullable=True)
+    battery_or_fuel_level: Mapped[int | None] = mapped_column(Integer, default=85, nullable=True)
+    last_location_update: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_geofence_breached: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    breach_distance_km: Mapped[float | None] = mapped_column(Float, default=0.0, nullable=True)
+    
     status: Mapped[str] = mapped_column(String(20), default="DRAFT", nullable=False, index=True) # DRAFT, PENDING, APPROVED, REJECTED
     rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_approved: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)

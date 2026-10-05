@@ -18,6 +18,7 @@ import {
   ArrowLeft,
   XCircle,
   ExternalLink,
+  Compass,
 } from "lucide-react";
 import { VehicleDetail, Review, VehicleDocument } from "@/types";
 import { apiService } from "@/lib/api";
@@ -261,6 +262,31 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
         <div className="lg:col-span-2 space-y-8">
           <VehicleGallery images={vehicle.images} />
 
+          {/* Operational Geofence Parameter Banner */}
+          <div className="p-4 rounded-2xl border flex items-center justify-between gap-4 bg-gradient-to-r from-blue-50/90 via-indigo-50/40 to-blue-50/20 border-blue-200/80 shadow-xs">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Compass className="w-5 h-5 stroke-[2.2]" />
+              </div>
+              <div>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-blue-700 block">
+                  Operational Geofence Boundary
+                </span>
+                <p className="text-sm font-extrabold text-gray-900">
+                  {vehicle.geofence_type === "CIRCULAR" && vehicle.geofence_radius_km ? (
+                    `Permitted Operating Area: ${vehicle.geofence_radius_km} km radius from ${vehicle.geofence_center_name || vehicle.pickup_location.split(',')[0].trim() || "City Center"}`
+                  ) : (
+                    "Geofence: Flexible (Coordinated upon booking)"
+                  )}
+                </p>
+              </div>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-xs font-semibold text-blue-900 bg-white/90 px-3 py-1.5 rounded-xl border border-blue-200/60 shadow-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Privacy-Preserved GPS</span>
+            </div>
+          </div>
+
           {/* Key Specs Grid */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-5 bg-gray-50/80 rounded-2xl border border-gray-200/80 text-xs font-medium text-gray-700">
             <div className="space-y-1">
@@ -387,6 +413,17 @@ export default function VehicleDetailPage({ params }: { params: Promise<{ id: st
             {vehicle.owner.bio && (
               <p className="text-xs text-gray-600 italic">"{vehicle.owner.bio}"</p>
             )}
+
+            <div className="pt-2 border-t border-blue-100/60 flex items-center justify-between">
+              <span className="text-[11px] text-gray-500">Want to explore more cars from this host?</span>
+              <Link
+                href={`/profile/${vehicle.owner_id}`}
+                className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-700 hover:underline"
+              >
+                <span>View Host Profile & Fleet</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </Link>
+            </div>
           </div>
 
           {/* Reviews Section */}

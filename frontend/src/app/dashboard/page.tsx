@@ -13,6 +13,9 @@ import {
   AlertTriangle,
   ArrowRight,
   UserCheck,
+  Compass,
+  MapPin,
+  Layers,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { HonorScoreBadge } from "@/components/ui/HonorScoreBadge";
@@ -21,6 +24,7 @@ import { Button } from "@/components/ui/Button";
 import { apiService } from "@/lib/api";
 import { Booking, HonorScoreHistory } from "@/types";
 import { formatCurrency, formatDate, getHonorCategoryInfo } from "@/lib/utils";
+import { FleetMapView } from "@/components/tracking/FleetMapView";
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -29,6 +33,7 @@ export default function DashboardPage() {
   const [myRentals, setMyRentals] = useState<Booking[]>([]);
   const [incomingRequests, setIncomingRequests] = useState<Booking[]>([]);
   const [honorHistory, setHonorHistory] = useState<HonorScoreHistory[]>([]);
+  const [activeTab, setActiveTab] = useState<"overview" | "fleet_map">("overview");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -83,31 +88,41 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      {/* Driver License Verification Callout */}
-      {!user.is_verified && (
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center shrink-0">
-              <UserCheck className="w-5 h-5" />
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-gray-900">Verify Your Driving License</h4>
-              <p className="text-xs text-gray-600">
-                Submit your driving license number to unlock verified host status and claim +10 Honor Score points.
-              </p>
-            </div>
-          </div>
-          <Link href="/profile">
-            <Button variant="outline" size="sm" className="bg-white border-blue-300 text-blue-700 hover:bg-blue-50">
-              Verify License Now
-            </Button>
-          </Link>
-        </div>
-      )}
+      {/* Dashboard Sub-navigation Tabs */}
+      <div className="flex items-center gap-2 border-b border-gray-200/80 pb-1">
+        <button
+          onClick={() => setActiveTab("overview")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === "overview"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          }`}
+        >
+          <Layers className="w-4 h-4" />
+          <span>Overview & Honor Rating</span>
+        </button>
 
-      {/* Honor Score Feature Card */}
-      <div className="bg-gradient-to-r from-gray-900 via-slate-900 to-blue-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
+        <button
+          onClick={() => setActiveTab("fleet_map")}
+          className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+            activeTab === "fleet_map"
+              ? "bg-blue-600 text-white shadow-sm"
+              : "text-gray-600 hover:text-gray-900 hover:bg-gray-100"
+          }`}
+        >
+          <Compass className="w-4 h-4" />
+          <span>Fleet Map (Live GPS & Geofencing)</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping ml-0.5" />
+        </button>
+      </div>
+
+      {activeTab === "fleet_map" ? (
+        <FleetMapView />
+      ) : (
+        <>
+          {/* Honor Score Feature Card */}
+          <div className="bg-gradient-to-r from-gray-900 via-slate-900 to-blue-950 rounded-3xl p-6 sm:p-8 text-white shadow-xl space-y-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="space-y-1">
             <span className="text-[11px] font-bold uppercase tracking-wider text-blue-400">
               Community Honor Rating
@@ -269,6 +284,8 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
-    </div>
+    </>
+  )}
+</div>
   );
 }

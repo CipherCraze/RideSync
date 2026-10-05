@@ -13,6 +13,8 @@ class UserRegister(BaseModel):
     password: str = Field(..., min_length=6)
     full_name: str = Field(..., min_length=2)
     phone: str | None = None
+    profile_picture: str | None = None
+    avatar_url: str | None = None
 
 class UserLogin(BaseModel):
     email: EmailStr

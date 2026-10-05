@@ -22,14 +22,22 @@ class AuthService:
                 detail="User with this email already exists."
             )
 
+        avatar = user_in.profile_picture or user_in.avatar_url
+        if not avatar or not avatar.strip():
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="A valid profile image file upload is required for registration."
+            )
+
         hashed = get_password_hash(user_in.password)
         user_data = {
             "email": user_in.email,
             "hashed_password": hashed,
             "full_name": user_in.full_name,
             "phone": user_in.phone,
+            "profile_picture": avatar.strip(),
             "honor_score": 100,
-            "is_verified": False,
+            "is_verified": True,  # Standard baseline account creation; no document checks required
             "is_admin": False,
             "is_suspended": False,
         }

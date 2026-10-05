@@ -1,18 +1,51 @@
-from typing import List
-from fastapi import APIRouter, Depends, status
+from typing import List, Optional
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.schemas.user import UserResponse, UserProfileResponse, UserUpdate, UserVerificationRequest
+from app.schemas.user import (
+    UserResponse,
+    UserProfileResponse,
+    UserUpdate,
+    UserVerificationRequest,
+    UserPublicCard,
+    UserPublicDetail
+)
 from app.schemas.honor import HonorScoreHistoryResponse
 from app.services.user_service import UserService
 from app.services.honor_service import HonorService
+from app.services.user_discovery_service import UserDiscoveryService
 from app.repositories.vehicle_repository import VehicleRepository
 from app.repositories.booking_repository import BookingRepository
 from app.repositories.review_repository import ReviewRepository
 from app.models.user import User
 
 router = APIRouter(prefix="/users", tags=["Users"])
+
+@router.get("/discover", response_model=List[UserPublicCard])
+async def discover_users(
+    query: Optional[str] = Query(None, description="Search by name, email, or bio"),
+    role: Optional[str] = Query(None, description="Filter by role: OWNER or RENTER"),
+    skip: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    User discovery search for discovering hosts and renters across the community.
+    """
+    service = UserDiscoveryService(db)
+    return await service.search_users(query=query, role=role, skip=skip, limit=limit)
+
+@router.get("/{user_id}/public", response_model=UserPublicDetail)
+async def get_public_user_profile(
+    user_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Public profile projection showing avatar, join date, reputation score, and listed vehicles.
+    """
+    service = UserDiscoveryService(db)
+    return await service.get_user_public_profile(user_id)
 
 @router.get("/profile/{user_id}", response_model=UserProfileResponse)
 async def get_user_profile(user_id: int, db: AsyncSession = Depends(get_db)):

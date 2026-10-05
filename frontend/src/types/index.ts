@@ -68,6 +68,18 @@ export interface Vehicle {
   is_available: boolean;
   rating_avg: number;
   rating_count: number;
+  geofence_type?: 'CIRCULAR' | 'FLEXIBLE';
+  geofence_center_lat?: number | null;
+  geofence_center_lng?: number | null;
+  geofence_radius_km?: number | null;
+  geofence_center_name?: string | null;
+  current_latitude?: number | null;
+  current_longitude?: number | null;
+  speed_kmh?: number | null;
+  battery_or_fuel_level?: number | null;
+  last_location_update?: string | null;
+  is_geofence_breached?: boolean;
+  breach_distance_km?: number;
   created_at: string;
   images: VehicleImage[];
   documents?: VehicleDocument[];
@@ -220,4 +232,80 @@ export interface Transaction {
   status: 'SUCCESS' | 'FAILED';
   created_at: string;
   updated_at: string;
+}
+
+export interface VehicleTrackingInfo {
+  vehicle_id: number;
+  brand: string;
+  model: string;
+  year: number;
+  license_plate?: string | null;
+  status: string;
+  is_available: boolean;
+  rental_status: 'Idle' | 'Rented' | 'Unavailable';
+  active_renter_name?: string | null;
+  geofence_type: 'CIRCULAR' | 'FLEXIBLE';
+  geofence_center_lat?: number | null;
+  geofence_center_lng?: number | null;
+  geofence_radius_km?: number | null;
+  geofence_center_name?: string | null;
+  approx_latitude: number;
+  approx_longitude: number;
+  accuracy_radius_m: number;
+  is_obfuscated: boolean;
+  is_breached: boolean;
+  breach_distance_km: number;
+  breach_severity: 'SAFE' | 'NEAR_BREACH' | 'DISTANT_BREACH';
+  status_label: 'Inside Safe Zone' | 'Geofence Breached' | 'Idle' | 'Rented';
+  speed_kmh: number;
+  battery_or_fuel_level?: number | null;
+  last_updated: string;
+}
+
+export interface TrackingConfig {
+  default_masking_buffer_km: number;
+  gradient_near_threshold_km: number;
+  gradient_near_accuracy_km: number;
+  gradient_far_threshold_km: number;
+  gradient_far_accuracy_km: number;
+  gradient_sensitivity: number;
+}
+
+export interface UserListingSummary {
+  id: number;
+  brand: string;
+  model: string;
+  year: number;
+  price_per_day: number;
+  vehicle_type: string;
+  pickup_location: string;
+  rating_avg: number;
+  rating_count: number;
+  is_available: boolean;
+  primary_image?: string | null;
+  geofence_type?: string | null;
+  geofence_radius_km?: number | null;
+  geofence_center_name?: string | null;
+}
+
+export interface UserPublicCard {
+  id: number;
+  full_name: string;
+  profile_picture?: string | null;
+  bio?: string | null;
+  is_owner: boolean;
+  is_renter: boolean;
+  honor_score: number;
+  honor_category: string;
+  joined_date: string;
+  active_listings_count: number;
+  completed_trips_count: number;
+  rating_avg: number;
+}
+
+export interface UserPublicDetail extends UserPublicCard {
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  active_listings: UserListingSummary[];
 }

@@ -54,6 +54,11 @@ class VehicleBase(BaseModel):
     pickup_location: str
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    geofence_type: str = "CIRCULAR"  # CIRCULAR, FLEXIBLE
+    geofence_center_lat: Optional[float] = None
+    geofence_center_lng: Optional[float] = None
+    geofence_radius_km: Optional[float] = 25.0
+    geofence_center_name: Optional[str] = None
 
 class VehicleCreate(VehicleBase):
     status: Optional[str] = "PENDING"  # DRAFT or PENDING
@@ -75,6 +80,11 @@ class VehicleUpdate(BaseModel):
     status: Optional[str] = None
     rejection_reason: Optional[str] = None
     images: Optional[List[Union[str, VehicleImageCreate]]] = None
+    geofence_type: Optional[str] = None
+    geofence_center_lat: Optional[float] = None
+    geofence_center_lng: Optional[float] = None
+    geofence_radius_km: Optional[float] = None
+    geofence_center_name: Optional[str] = None
 
 class VehicleRejectionRequest(BaseModel):
     reason: str = Field(..., min_length=5, description="Reason for rejecting vehicle listing")
@@ -88,6 +98,8 @@ class VehicleResponse(VehicleBase):
     is_available: bool
     rating_avg: float
     rating_count: int
+    is_geofence_breached: bool = False
+    breach_distance_km: Optional[float] = 0.0
     created_at: datetime
     images: List[VehicleImageSchema] = []
     documents: List[VehicleDocumentSchema] = []

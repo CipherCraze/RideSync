@@ -10,6 +10,7 @@ from app.models.honor_score_history import HonorScoreHistory
 from app.models.transaction import Transaction
 from app.models.conversation import Conversation
 from app.models.message import Message
+from app.models.system_config import SystemConfig
 
 __all__ = [
     "User",
@@ -24,5 +25,6 @@ __all__ = [
     "Transaction",
     "Conversation",
     "Message",
+    "SystemConfig",
 ]
 
