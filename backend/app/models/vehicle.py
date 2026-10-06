@@ -54,4 +54,5 @@ class Vehicle(Base):
     documents = relationship("VehicleDocument", back_populates="vehicle", cascade="all, delete-orphan")
     bookings = relationship("Booking", back_populates="vehicle", cascade="all, delete-orphan")
     reviews = relationship("Review", back_populates="vehicle", cascade="all, delete-orphan")
+    location_pings = relationship("LocationPing", back_populates="vehicle", cascade="all, delete-orphan")
 

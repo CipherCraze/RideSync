@@ -10,7 +10,9 @@ from app.schemas.tracking import (
     VehicleLocationResponse,
     VehicleTelemetryUpdate,
     SimulationRequest,
-    TrackingConfigResponse
+    TrackingConfigResponse,
+    LocationPingResponse,
+    OverdueLocationResponse
 )
 
 router = APIRouter(prefix="/tracking", tags=["Tracking & Geofencing"])
@@ -38,6 +40,32 @@ async def get_vehicle_location(
     """
     service = VehicleTrackingService(db)
     return await service.get_vehicle_location(vehicle_id, current_user.id)
+
+@router.get("/vehicles/{vehicle_id}/history", response_model=List[LocationPingResponse])
+async def get_vehicle_location_history(
+    vehicle_id: int,
+    limit: int = 50,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns historical telemetry pings for a vehicle.
+    Access is restricted to host or active/overdue renter.
+    """
+    service = VehicleTrackingService(db)
+    return await service.get_location_history(vehicle_id, current_user.id, limit=limit)
+
+@router.get("/bookings/{booking_id}/overdue-location", response_model=OverdueLocationResponse)
+async def get_overdue_booking_location(
+    booking_id: int,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Returns unmasked GPS telemetry and overdue reporting for a delayed vehicle return.
+    """
+    service = VehicleTrackingService(db)
+    return await service.get_overdue_location(booking_id, current_user.id)
 
 @router.post("/vehicles/{vehicle_id}/simulate", response_model=VehicleLocationResponse)
 async def simulate_vehicle_movement(

@@ -18,6 +18,7 @@ class BookingRepository(BaseRepository[Booking]):
                 selectinload(Booking.renter),
                 selectinload(Booking.owner),
                 selectinload(Booking.vehicle).selectinload(Vehicle.images),
+                selectinload(Booking.vehicle).selectinload(Vehicle.documents),
             )
             .where(Booking.id == booking_id)
         )
@@ -30,6 +31,7 @@ class BookingRepository(BaseRepository[Booking]):
                 selectinload(Booking.renter),
                 selectinload(Booking.owner),
                 selectinload(Booking.vehicle).selectinload(Vehicle.images),
+                selectinload(Booking.vehicle).selectinload(Vehicle.documents),
             )
             .where(Booking.renter_id == renter_id)
         )
@@ -46,6 +48,7 @@ class BookingRepository(BaseRepository[Booking]):
                 selectinload(Booking.renter),
                 selectinload(Booking.owner),
                 selectinload(Booking.vehicle).selectinload(Vehicle.images),
+                selectinload(Booking.vehicle).selectinload(Vehicle.documents),
             )
             .where(Booking.owner_id == owner_id)
         )

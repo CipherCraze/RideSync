@@ -68,6 +68,33 @@ export default function MyRentalsPage() {
     }
   };
 
+  const handleProposeRadius = async (bookingId: number) => {
+    const radiusStr = prompt("Enter permitted operational radius in km (e.g., 35):", "35");
+    if (!radiusStr) return;
+    const radius = parseFloat(radiusStr);
+    if (isNaN(radius) || radius < 5 || radius > 300) {
+      alert("Please enter a valid radius between 5 km and 300 km.");
+      return;
+    }
+    try {
+      await apiService.proposeBookingRadius(bookingId, radius);
+      alert(`Proposed ${radius} km radius to host.`);
+      fetchRentals();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to propose radius.");
+    }
+  };
+
+  const handleRespondRadius = async (bookingId: number, action: "ACCEPT" | "REJECT") => {
+    try {
+      await apiService.respondBookingRadius(bookingId, action);
+      alert(action === "ACCEPT" ? "Permitted radius accepted!" : "Radius proposal declined.");
+      fetchRentals();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to respond to proposal.");
+    }
+  };
+
   const filteredBookings = bookings.filter((b) => {
     if (activeTab === "ALL") return true;
     if (activeTab === "ACTIVE") return b.status === "CONFIRMED" || b.status === "RENTAL_ACTIVE";
@@ -182,6 +209,35 @@ export default function MyRentalsPage() {
                     </span>
                     {b.owner && <HonorScoreBadge score={b.owner.honor_score} showIcon={false} />}
                   </div>
+
+                  {/* Permitted Geofence Radius Info & Proposal */}
+                  <div className="pt-2 flex items-center gap-2 flex-wrap text-xs">
+                    <span className="inline-flex items-center gap-1 font-semibold text-gray-700 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200">
+                      📍 Permitted Radius: {b.permitted_radius_km || 25} km
+                    </span>
+                    {b.radius_proposal_status === "PENDING" && b.radius_proposal_by === "OWNER" && (
+                      <span className="inline-flex items-center gap-1.5 font-medium text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full">
+                        Host proposed {b.proposed_radius_km} km
+                        <button
+                          onClick={() => handleRespondRadius(b.id, "ACCEPT")}
+                          className="ml-1 text-emerald-700 font-bold hover:underline"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleRespondRadius(b.id, "REJECT")}
+                          className="ml-1 text-rose-700 font-bold hover:underline"
+                        >
+                          Decline
+                        </button>
+                      </span>
+                    )}
+                    {b.radius_proposal_status === "PENDING" && b.radius_proposal_by === "RENTER" && (
+                      <span className="text-amber-600 font-medium italic">
+                        (You proposed {b.proposed_radius_km} km — awaiting host)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -193,6 +249,18 @@ export default function MyRentalsPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {/* Propose Radius Button during confirmed or active bookings */}
+                  {(b.status === "CONFIRMED" || b.status === "RENTAL_ACTIVE") && b.radius_proposal_status !== "PENDING" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleProposeRadius(b.id)}
+                      className="text-xs text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                    >
+                      Propose Radius
+                    </Button>
+                  )}
+
                   {b.payment_status === "PENDING" && (b.status === "CONFIRMED" || b.status === "PENDING") && (
                     <Button
                       variant="primary"
@@ -212,6 +280,17 @@ export default function MyRentalsPage() {
                       className="gap-1 text-gray-600"
                     >
                       <Receipt className="w-4 h-4" /> Receipt
+                    </Button>
+                  )}
+
+                  {b.status === "CONFIRMED" && (
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleUpdateStatus(b.id, "RENTAL_ACTIVE")}
+                      className="bg-indigo-600 hover:bg-indigo-700 text-white"
+                    >
+                      Confirm Pickup (Start Trip)
                     </Button>
                   )}
 

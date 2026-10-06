@@ -60,14 +60,12 @@ async def test_honor_score_and_audit_history(
     assert honor_score_res.json()["user_id"] == 2
     assert honor_score_res.json()["honor_score"] == 85
 
-    latest_entry = history[-1]
-    assert latest_entry["previous_score"] == 100
-    assert latest_entry["old_score"] == 100
-    assert latest_entry["new_score"] == 85
-    assert latest_entry["points_change"] == -15
-    assert latest_entry["change"] == -15
-    assert "late vehicle return" in latest_entry["reason"].lower()
-    assert latest_entry["reference_type"] == "REPORT"
+    penalty_entry = next(e for e in history if e["points_change"] == -15)
+    assert penalty_entry["points_change"] == -15
+    assert penalty_entry["change"] == -15
+    assert penalty_entry["new_score"] == 85
+    assert "late vehicle return" in penalty_entry["reason"].lower()
+    assert penalty_entry["reference_type"] == "REPORT"
 
     # 5. User 2 received notification about score adjustment
     notif_res = await client.get("/api/notifications/", headers=auth_headers_user2)

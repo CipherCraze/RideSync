@@ -55,6 +55,33 @@ export default function BookingRequestsPage() {
     }
   };
 
+  const handleProposeRadius = async (bookingId: number) => {
+    const radiusStr = prompt("Enter permitted operational radius in km (e.g., 35):", "35");
+    if (!radiusStr) return;
+    const radius = parseFloat(radiusStr);
+    if (isNaN(radius) || radius < 5 || radius > 300) {
+      alert("Please enter a valid radius between 5 km and 300 km.");
+      return;
+    }
+    try {
+      await apiService.proposeBookingRadius(bookingId, radius);
+      alert(`Proposed ${radius} km radius to renter.`);
+      fetchRequests();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to propose radius.");
+    }
+  };
+
+  const handleRespondRadius = async (bookingId: number, action: "ACCEPT" | "REJECT") => {
+    try {
+      await apiService.respondBookingRadius(bookingId, action);
+      alert(action === "ACCEPT" ? "Permitted radius accepted!" : "Radius proposal declined.");
+      fetchRequests();
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to respond to proposal.");
+    }
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div className="pb-6 border-b border-gray-200/80">
@@ -110,6 +137,35 @@ export default function BookingRequestsPage() {
                       {formatDate(req.start_date)} - {formatDate(req.end_date)}
                     </span>
                   </p>
+
+                  {/* Permitted Geofence Radius Info & Proposal for Host */}
+                  <div className="pt-2 flex items-center gap-2 flex-wrap text-xs">
+                    <span className="inline-flex items-center gap-1 font-semibold text-gray-700 bg-gray-100 px-2.5 py-0.5 rounded-full border border-gray-200">
+                      📍 Permitted Radius: {req.permitted_radius_km || 25} km
+                    </span>
+                    {req.radius_proposal_status === "PENDING" && req.radius_proposal_by === "RENTER" && (
+                      <span className="inline-flex items-center gap-1.5 font-medium text-amber-800 bg-amber-50 border border-amber-300 px-2.5 py-0.5 rounded-full">
+                        Renter requested {req.proposed_radius_km} km
+                        <button
+                          onClick={() => handleRespondRadius(req.id, "ACCEPT")}
+                          className="ml-1 text-emerald-700 font-bold hover:underline"
+                        >
+                          Accept
+                        </button>
+                        <button
+                          onClick={() => handleRespondRadius(req.id, "REJECT")}
+                          className="ml-1 text-rose-700 font-bold hover:underline"
+                        >
+                          Decline
+                        </button>
+                      </span>
+                    )}
+                    {req.radius_proposal_status === "PENDING" && req.radius_proposal_by === "OWNER" && (
+                      <span className="text-amber-600 font-medium italic">
+                        (You proposed {req.proposed_radius_km} km — awaiting renter)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -126,7 +182,19 @@ export default function BookingRequestsPage() {
                   )}
                 </div>
 
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap justify-end">
+                  {/* Propose Radius Button during confirmed or active bookings */}
+                  {(req.status === "CONFIRMED" || req.status === "RENTAL_ACTIVE") && req.radius_proposal_status !== "PENDING" && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleProposeRadius(req.id)}
+                      className="text-xs text-indigo-700 border-indigo-200 hover:bg-indigo-50"
+                    >
+                      Propose Radius
+                    </Button>
+                  )}
+
                   {req.status === "PENDING" && (
                     <>
                       <Button

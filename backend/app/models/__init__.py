@@ -11,6 +11,7 @@ from app.models.transaction import Transaction
 from app.models.conversation import Conversation
 from app.models.message import Message
 from app.models.system_config import SystemConfig
+from app.models.location_ping import LocationPing
 
 __all__ = [
     "User",
@@ -26,5 +27,6 @@ __all__ = [
     "Conversation",
     "Message",
     "SystemConfig",
+    "LocationPing",
 ]
 

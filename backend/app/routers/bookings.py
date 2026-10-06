@@ -3,7 +3,13 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.database import get_db
 from app.core.deps import get_current_user
-from app.schemas.booking import BookingCreate, BookingStatusUpdate, BookingDetailResponse
+from app.schemas.booking import (
+    BookingCreate,
+    BookingStatusUpdate,
+    BookingDetailResponse,
+    RadiusProposalRequest,
+    RadiusProposalDecision
+)
 from app.schemas.transaction import TransactionResponse
 from app.services.booking_service import BookingService
 from app.services.transaction_service import TransactionService
@@ -56,6 +62,32 @@ async def update_booking_status(
 ):
     service = BookingService(db)
     return await service.update_status(booking_id, current_user.id, status_update)
+
+@router.post("/{booking_id}/propose-radius", response_model=BookingDetailResponse)
+async def propose_booking_radius(
+    booking_id: int,
+    req: RadiusProposalRequest,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Propose an agreed permitted operational radius for this rental trip.
+    """
+    service = BookingService(db)
+    return await service.propose_radius(booking_id, current_user.id, req.proposed_radius_km)
+
+@router.post("/{booking_id}/respond-radius", response_model=BookingDetailResponse)
+async def respond_booking_radius(
+    booking_id: int,
+    decision: RadiusProposalDecision,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    Accept or reject a proposed permitted radius for this rental trip.
+    """
+    service = BookingService(db)
+    return await service.respond_to_radius_proposal(booking_id, current_user.id, decision.action)
 
 @router.post("/{booking_id}/pay", response_model=TransactionResponse)
 async def process_mock_payment(

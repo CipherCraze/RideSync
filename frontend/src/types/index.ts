@@ -103,11 +103,28 @@ export interface Booking {
   payment_status: 'PENDING' | 'PAID' | 'REFUNDED';
   is_overdue?: boolean;
   cancellation_reason?: string;
+  permitted_radius_km?: number;
+  proposed_radius_km?: number;
+  radius_proposal_by?: 'OWNER' | 'RENTER';
+  radius_proposal_status?: 'NONE' | 'PENDING' | 'ACCEPTED' | 'REJECTED';
   created_at: string;
   updated_at: string;
   renter?: User;
   owner?: User;
   vehicle?: Vehicle;
+}
+
+export interface LocationPing {
+  id: number;
+  vehicle_id: number;
+  booking_id?: number | null;
+  latitude: number;
+  longitude: number;
+  speed_kmh: number;
+  battery_or_fuel_level: number;
+  is_geofence_breached: boolean;
+  breach_distance_km: number;
+  recorded_at: string;
 }
 
 export interface Review {

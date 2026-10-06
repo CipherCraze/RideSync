@@ -13,6 +13,12 @@ class BookingStatusUpdate(BaseModel):
     status: str # CONFIRMED, REJECTED, RENTAL_ACTIVE, RETURNED, COMPLETED, CANCELLED
     cancellation_reason: Optional[str] = None
 
+class RadiusProposalRequest(BaseModel):
+    proposed_radius_km: float
+
+class RadiusProposalDecision(BaseModel):
+    action: str # "ACCEPT" or "REJECT"
+
 class BookingResponse(BaseModel):
     id: int
     renter_id: int
@@ -25,6 +31,10 @@ class BookingResponse(BaseModel):
     payment_status: str
     cancellation_reason: Optional[str] = None
     is_overdue: Optional[bool] = False
+    permitted_radius_km: Optional[float] = 25.0
+    proposed_radius_km: Optional[float] = None
+    radius_proposal_by: Optional[str] = None
+    radius_proposal_status: Optional[str] = "NONE"
     created_at: datetime
     updated_at: datetime
 

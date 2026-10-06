@@ -8,8 +8,10 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import HTTPException, status
 
+from app.models.user import User
 from app.models.vehicle import Vehicle
 from app.models.booking import Booking
+from app.models.location_ping import LocationPing
 from app.models.notification import Notification
 from app.models.system_config import SystemConfig
 from app.services.geofence_service import GeofenceService
@@ -122,8 +124,8 @@ class VehicleTrackingService:
         raw_lat = vehicle.current_latitude or vehicle.geofence_center_lat or vehicle.latitude or 37.7749
         raw_lng = vehicle.current_longitude or vehicle.geofence_center_lng or vehicle.longitude or -122.4194
 
-        center_lat = vehicle.geofence_center_lat or vehicle.latitude or raw_lat
-        center_lng = vehicle.geofence_center_lng or vehicle.longitude or raw_lng
+        center_lat = vehicle.geofence_center_lat or vehicle.latitude or 37.7749
+        center_lng = vehicle.geofence_center_lng or vehicle.longitude or -122.4194
         radius_km = vehicle.geofence_radius_km or 25.0
 
         eval_res = GeofenceService.evaluate_geofence(
@@ -334,6 +336,30 @@ class VehicleTrackingService:
             )
             self.db.add(notif)
 
+        # Record Location Ping (Person 2 Ping Storage)
+        active_b_stmt = (
+            select(Booking)
+            .filter(
+                Booking.vehicle_id == vehicle.id,
+                Booking.status.in_(["RENTAL_ACTIVE", "CONFIRMED"])
+            )
+            .limit(1)
+        )
+        active_b = (await self.db.execute(active_b_stmt)).scalar_one_or_none()
+
+        ping = LocationPing(
+            vehicle_id=vehicle.id,
+            booking_id=active_b.id if active_b else None,
+            latitude=vehicle.current_latitude,
+            longitude=vehicle.current_longitude,
+            speed_kmh=vehicle.speed_kmh or 0.0,
+            battery_or_fuel_level=vehicle.battery_or_fuel_level or 85.0,
+            is_geofence_breached=vehicle.is_geofence_breached,
+            breach_distance_km=vehicle.breach_distance_km or 0.0,
+            recorded_at=now,
+        )
+        self.db.add(ping)
+
         await self.db.commit()
         await self.db.refresh(vehicle)
 
@@ -396,7 +422,126 @@ class VehicleTrackingService:
             )
             self.db.add(notif)
 
+        # Record Location Ping (Person 2 Ping Storage)
+        active_b_stmt = (
+            select(Booking)
+            .filter(
+                Booking.vehicle_id == vehicle.id,
+                Booking.status.in_(["RENTAL_ACTIVE", "CONFIRMED"])
+            )
+            .limit(1)
+        )
+        active_b = (await self.db.execute(active_b_stmt)).scalar_one_or_none()
+
+        ping = LocationPing(
+            vehicle_id=vehicle.id,
+            booking_id=active_b.id if active_b else None,
+            latitude=vehicle.current_latitude,
+            longitude=vehicle.current_longitude,
+            speed_kmh=vehicle.speed_kmh or 0.0,
+            battery_or_fuel_level=vehicle.battery_or_fuel_level or 85.0,
+            is_geofence_breached=vehicle.is_geofence_breached,
+            breach_distance_km=vehicle.breach_distance_km or 0.0,
+            recorded_at=now,
+        )
+        self.db.add(ping)
+
         await self.db.commit()
         await self.db.refresh(vehicle)
 
         return await self.get_vehicle_location_response(vehicle, config)
+
+    async def get_location_history(
+        self,
+        vehicle_id: int,
+        user_id: int,
+        limit: int = 50
+    ) -> List[LocationPing]:
+        """
+        Retrieves historical location ping breadcrumbs.
+        Permissions: Accessible by vehicle owner, or active/overdue renter.
+        """
+        stmt = select(Vehicle).filter(Vehicle.id == vehicle_id)
+        res = await self.db.execute(stmt)
+        vehicle = res.scalar_one_or_none()
+        if not vehicle:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
+
+        # Permissions check
+        is_owner = (vehicle.owner_id == user_id)
+        if not is_owner:
+            b_stmt = select(Booking).filter(
+                Booking.vehicle_id == vehicle_id,
+                Booking.renter_id == user_id,
+                Booking.status.in_(["RENTAL_ACTIVE", "CONFIRMED"])
+            )
+            has_booking = (await self.db.execute(b_stmt)).scalar_one_or_none()
+            if not has_booking:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Location history is only accessible by the owner or during an active rental."
+                )
+
+        pings_stmt = (
+            select(LocationPing)
+            .filter(LocationPing.vehicle_id == vehicle_id)
+            .order_by(LocationPing.recorded_at.desc())
+            .limit(limit)
+        )
+        res = await self.db.execute(pings_stmt)
+        return list(res.scalars().all())
+
+    async def get_overdue_location(self, booking_id: int, user_id: int) -> Dict[str, Any]:
+        """
+        Provides direct unmasked GPS coordinates and telemetry for an overdue rental.
+        """
+        stmt = select(Booking).filter(Booking.id == booking_id)
+        res = await self.db.execute(stmt)
+        booking = res.scalar_one_or_none()
+        if not booking:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Booking not found.")
+
+        user_stmt = select(User).filter(User.id == user_id)
+        curr_user = (await self.db.execute(user_stmt)).scalar_one_or_none()
+        is_admin = curr_user.is_admin if curr_user else False
+
+        if booking.owner_id != user_id and booking.renter_id != user_id and not is_admin:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Not authorized to access overdue tracking report."
+            )
+
+        now = datetime.now(timezone.utc).replace(tzinfo=None)
+        end_date_naive = booking.end_date.replace(tzinfo=None) if booking.end_date.tzinfo else booking.end_date
+        
+        is_overdue = (booking.status == "RENTAL_ACTIVE" and end_date_naive < now)
+        hours_overdue = max(0.0, (now - end_date_naive).total_seconds() / 3600.0) if is_overdue else 0.0
+
+        v_stmt = select(Vehicle).filter(Vehicle.id == booking.vehicle_id)
+        vehicle = (await self.db.execute(v_stmt)).scalar_one_or_none()
+        if not vehicle:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Vehicle not found.")
+
+        r_stmt = select(User).filter(User.id == booking.renter_id)
+        renter = (await self.db.execute(r_stmt)).scalar_one_or_none()
+
+        lat = vehicle.current_latitude or vehicle.latitude or 37.7749
+        lng = vehicle.current_longitude or vehicle.longitude or -122.4194
+
+        return {
+            "booking_id": booking.id,
+            "vehicle_id": vehicle.id,
+            "vehicle_name": f"{vehicle.brand} {vehicle.model}",
+            "renter_name": renter.full_name if renter else "Unknown Renter",
+            "renter_phone": renter.phone if renter else None,
+            "scheduled_end_date": booking.end_date,
+            "hours_overdue": round(hours_overdue, 2),
+            "current_latitude": lat,
+            "current_longitude": lng,
+            "speed_kmh": vehicle.speed_kmh or 0.0,
+            "battery_or_fuel_level": vehicle.battery_or_fuel_level or 85.0,
+            "last_location_update": vehicle.last_location_update or vehicle.updated_at,
+            "is_geofence_breached": vehicle.is_geofence_breached,
+            "breach_distance_km": vehicle.breach_distance_km or 0.0,
+            "emergency_status": "CRITICAL_OVERDUE" if hours_overdue > 2.0 else ("OVERDUE" if is_overdue else "ON_TIME")
+        }

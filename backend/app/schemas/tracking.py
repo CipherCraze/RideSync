@@ -62,3 +62,36 @@ class VehicleTelemetryUpdate(BaseModel):
 
 class SimulationRequest(BaseModel):
     target_state: str = "AUTO"  # "AUTO", "IN_BOUNDS", "BREACH_NEAR", "BREACH_FAR"
+
+class LocationPingResponse(BaseModel):
+    id: int
+    vehicle_id: int
+    booking_id: Optional[int] = None
+    latitude: float
+    longitude: float
+    speed_kmh: float
+    battery_or_fuel_level: float
+    is_geofence_breached: bool
+    breach_distance_km: float
+    recorded_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class OverdueLocationResponse(BaseModel):
+    booking_id: int
+    vehicle_id: int
+    vehicle_name: str
+    renter_name: str
+    renter_phone: Optional[str] = None
+    scheduled_end_date: datetime
+    hours_overdue: float
+    current_latitude: float
+    current_longitude: float
+    speed_kmh: float
+    battery_or_fuel_level: float
+    last_location_update: Optional[datetime] = None
+    is_geofence_breached: bool
+    breach_distance_km: float
+    emergency_status: str
+
+    model_config = ConfigDict(from_attributes=True)

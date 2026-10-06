@@ -217,3 +217,93 @@ class BookingService:
             else:
                 b.is_overdue = False
         return bookings
+
+    async def propose_radius(self, booking_id: int, user_id: int, proposed_radius_km: float):
+        booking = await self.booking_repo.get_with_details(booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found.")
+
+        is_owner = (booking.owner_id == user_id)
+        is_renter = (booking.renter_id == user_id)
+        if not (is_owner or is_renter):
+            raise HTTPException(status_code=403, detail="Not authorized for this booking.")
+
+        if proposed_radius_km < 5.0 or proposed_radius_km > 300.0:
+            raise HTTPException(status_code=400, detail="Proposed radius must be between 5 km and 300 km.")
+
+        proposer_role = "OWNER" if is_owner else "RENTER"
+        recipient_id = booking.renter_id if is_owner else booking.owner_id
+
+        booking.proposed_radius_km = proposed_radius_km
+        booking.radius_proposal_by = proposer_role
+        booking.radius_proposal_status = "PENDING"
+
+        await self.db.commit()
+        await self.db.refresh(booking)
+
+        # Notify other party
+        proposer_user = await self.user_repo.get(user_id)
+        proposer_name = proposer_user.full_name if proposer_user else "User"
+        await self.notification_service.notify(
+            user_id=recipient_id,
+            title="Geofence Radius Adjustment Proposed",
+            message=f"{proposer_name} proposed a permitted operational radius of {proposed_radius_km:.0f} km.",
+            notification_type="GEOFENCE_PROPOSAL",
+            link_url="/booking-requests" if not is_owner else "/my-rentals"
+        )
+
+        return booking
+
+    async def respond_to_radius_proposal(self, booking_id: int, user_id: int, action: str):
+        booking = await self.booking_repo.get_with_details(booking_id)
+        if not booking:
+            raise HTTPException(status_code=404, detail="Booking not found.")
+
+        is_owner = (booking.owner_id == user_id)
+        is_renter = (booking.renter_id == user_id)
+        if not (is_owner or is_renter):
+            raise HTTPException(status_code=403, detail="Not authorized for this booking.")
+
+        if booking.radius_proposal_status != "PENDING":
+            raise HTTPException(status_code=400, detail="No pending radius proposal for this booking.")
+
+        current_role = "OWNER" if is_owner else "RENTER"
+        if booking.radius_proposal_by == current_role:
+            raise HTTPException(status_code=400, detail="You cannot accept or reject your own proposal.")
+
+        responder_user = await self.user_repo.get(user_id)
+        responder_name = responder_user.full_name if responder_user else "User"
+        recipient_id = booking.renter_id if is_owner else booking.owner_id
+
+        action_upper = action.upper()
+        if action_upper == "ACCEPT":
+            booking.permitted_radius_km = booking.proposed_radius_km
+            booking.radius_proposal_status = "ACCEPTED"
+            
+            # Synchronize vehicle geofence radius if circular
+            vehicle = await self.vehicle_repo.get(booking.vehicle_id)
+            if vehicle and vehicle.geofence_type == "CIRCULAR":
+                vehicle.geofence_radius_km = booking.permitted_radius_km
+
+            await self.notification_service.notify(
+                user_id=recipient_id,
+                title="Geofence Radius Agreed!",
+                message=f"{responder_name} accepted the permitted operational radius of {booking.permitted_radius_km:.0f} km.",
+                notification_type="GEOFENCE_ACCEPTED",
+                link_url="/booking-requests" if not is_owner else "/my-rentals"
+            )
+        elif action_upper == "REJECT":
+            booking.radius_proposal_status = "REJECTED"
+            await self.notification_service.notify(
+                user_id=recipient_id,
+                title="Geofence Radius Declined",
+                message=f"{responder_name} declined the proposed radius of {booking.proposed_radius_km:.0f} km.",
+                notification_type="GEOFENCE_REJECTED",
+                link_url="/booking-requests" if not is_owner else "/my-rentals"
+            )
+        else:
+            raise HTTPException(status_code=400, detail="Action must be ACCEPT or REJECT.")
+
+        await self.db.commit()
+        await self.db.refresh(booking)
+        return booking

@@ -161,12 +161,28 @@ export const apiService = {
     const res = await api.put<Booking>(`/bookings/${id}/status`, data);
     return res.data;
   },
+  proposeBookingRadius: async (bookingId: number, proposed_radius_km: number) => {
+    const res = await api.post<Booking>(`/bookings/${bookingId}/propose-radius`, { proposed_radius_km });
+    return res.data;
+  },
+  respondBookingRadius: async (bookingId: number, action: "ACCEPT" | "REJECT") => {
+    const res = await api.post<Booking>(`/bookings/${bookingId}/respond-radius`, { action });
+    return res.data;
+  },
   processPayment: async (id: number, status: string = "SUCCESS") => {
     const res = await api.post<Transaction>(`/bookings/${id}/pay?status=${status}`);
     return res.data;
   },
   getBookingReceipt: async (id: number) => {
     const res = await api.get<Transaction[]>(`/bookings/${id}/receipt`);
+    return res.data;
+  },
+  getVehicleLocationHistory: async (vehicleId: number, limit: number = 50) => {
+    const res = await api.get<any[]>(`/tracking/vehicles/${vehicleId}/history`, { params: { limit } });
+    return res.data;
+  },
+  getOverdueLocation: async (bookingId: number) => {
+    const res = await api.get<any>(`/tracking/bookings/${bookingId}/overdue-location`);
     return res.data;
   },
 

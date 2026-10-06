@@ -128,6 +128,12 @@ async def test_data(db_session: AsyncSession):
         price_per_day=90.0,
         description="Pristine EV",
         pickup_location="Downtown Test",
+        latitude=37.7749,
+        longitude=-122.4194,
+        geofence_type="CIRCULAR",
+        geofence_center_lat=37.7749,
+        geofence_center_lng=-122.4194,
+        geofence_radius_km=25.0,
         is_approved=True,
         is_available=True,
     )

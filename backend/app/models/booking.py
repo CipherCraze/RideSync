@@ -18,6 +18,12 @@ class Booking(Base):
     status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False, index=True)
     payment_status: Mapped[str] = mapped_column(String(50), default="PENDING", nullable=False) # PENDING, PAID, REFUNDED
     cancellation_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Permitted Operational Geofence Radius Joint Agreement (Person 2)
+    permitted_radius_km: Mapped[float | None] = mapped_column(Float, default=25.0, nullable=True)
+    proposed_radius_km: Mapped[float | None] = mapped_column(Float, nullable=True)
+    radius_proposal_by: Mapped[str | None] = mapped_column(String(50), nullable=True) # OWNER or RENTER
+    radius_proposal_status: Mapped[str | None] = mapped_column(String(50), default="NONE", nullable=True) # NONE, PENDING, ACCEPTED, REJECTED
     
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
@@ -28,3 +34,4 @@ class Booking(Base):
     vehicle = relationship("Vehicle", back_populates="bookings")
     reviews = relationship("Review", back_populates="booking", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="booking", cascade="all, delete-orphan")
+    location_pings = relationship("LocationPing", back_populates="booking")
